@@ -65,7 +65,7 @@ def _get_cycle(r, phi):
             break
     return r[:j], phi[:j]
 
-def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = None, color = "k"):
+def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = None):
     '''
     Plot the probability histogram corresponding ot the expectation value of the oscillator
     given by the late-time dynamics (``r_over_cycle``, ``phi_over_cycle``). The probability
@@ -97,9 +97,6 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = 
         
     ``overlap_with``    : ``matplotlib.axes.Axes`` object
         Plot in an existing axis, useful for comparisons.
-        
-    ``color``   :   ``"k"``
-        Color of the curve.
         
     '''
     
@@ -148,7 +145,13 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = 
     ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
     
     return phi_bin_midpoints, hist_data
-    
+
+import pyqosc as qo
+params = qo.vdp_params(N = 30, Delta = 16, Omega = 1, gamma_1 = 1, gamma_2 = 0.1)
+H, c_ops = qo.vdp_lindblad(params)
+rho = qt.steadystate(H, c_ops)
+r, phi = qo.vdp_expvalb(params, t_eval = 1)
+ss_expval_phasedist(rho, r, phi)
     
 def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
     N = rho_ss.dims[0][0]

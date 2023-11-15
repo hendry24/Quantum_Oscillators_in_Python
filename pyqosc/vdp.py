@@ -25,7 +25,8 @@ def vdp_lindblad(vdp_params):
     return -Delta * b.dag() * b + 1j * Omega * (b - b.dag()), [np.sqrt(gamma_1) * b.dag(), np.sqrt(gamma_2) * b ** 2]
 
 def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100, 
-                init_polar = [1, 0], plot = False, method = "Radau", overlap_with = None):
+                init_polar = [1, 0], plot = False, method = "Radau", overlap_with = None,
+                color = "k"):
     '''
     Solve the equation of motion for the expectation value of the annihilation operator
     using the Adler equations (https://doi.org/10.1103/PhysRevLett.112.094102).
@@ -63,6 +64,9 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
     ``overlap_with``    : None
         Plot in the given axis. If ``None``, then make a new axis.
         
+    ``color``   :   ``"k"``
+        Color of the curve.
+        
     '''
     
     t_return = np.linspace(t_end-t_eval, t_end, timepoints_returned)
@@ -83,7 +87,7 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
         if r[i]<0:
             r[i] *= -1
             phi[i] += np.pi
-        phi[i]%(2*np.pi)
+        phi[i] = phi[i]%(2*np.pi)
     
     if plot:
         if overlap_with:
