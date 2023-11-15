@@ -1,1 +1,3 @@
-# Quantum_Oscillators_in_Python
+# pyqosc
+
+betabetabeta
