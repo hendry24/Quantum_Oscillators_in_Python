@@ -25,7 +25,7 @@ def vdp_lindblad(vdp_params):
     return -Delta * b.dag() * b + 1j * Omega * (b - b.dag()), [np.sqrt(gamma_1) * b.dag(), np.sqrt(gamma_2) * b ** 2]
 
 def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100, 
-                init_polar = [1, 0], plot = False, method = "Radau"):
+                init_polar = [1, 0], plot = False, method = "Radau", overlap_with = None):
     '''
     Solve the equation of motion for the expectation value of the annihilation operator
     using the Adler equations (https://doi.org/10.1103/PhysRevLett.112.094102).
@@ -59,7 +59,12 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
 
     ``method``  : ``Radau``
         Method for ``scipy.integrate.solve_ivp`` evaluation.
+        
+    ``overlap_with``    : None
+        Plot in the given axis. If ``None``, then make a new axis.
+        
     '''
+    
     t_return = np.linspace(t_eval, t_end, timepoints_returned)
     
     Delta, Omega, gamma_1, gamma_2 = vdp_params.get_params()
@@ -81,8 +86,11 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
         phi[i]%(2*np.pi)
     
     if plot:
-        plt.plot(r * np.cos(phi), r * np.sin(phi))
-        plt.show()
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplot(figsize = (5,5))
+        ax.plot(r * np.cos(phi), r * np.sin(phi))
         
     return r, phi
 

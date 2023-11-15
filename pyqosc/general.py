@@ -4,13 +4,16 @@ import matplotlib.pyplot as plt
 options = qt.Options(nsteps = int(1e12))
 plt.rcParams.update({"font.size" : 13})
 
-def steady_state(lindblad, plot_wigner = False, xlim = 6, ylim = 6):
+def steady_state(lindblad, plot_wigner = False, xlim = 6, ylim = 6, overlap_with = None):
     Ham, c_ops = lindblad
     
     rho_ss = qt.steadystate(Ham, c_ops)
     
     if plot_wigner:
-        fig, ax = plt.subplots(1, figsize = (4, 4))
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplots(1, figsize = (4, 4))
         x = np.linspace(-xlim, xlim, 31)
         y = np.linspace(-ylim, ylim, 31)
         plot = ax.contourf(x, y, qt.wigner(rho_ss, x, y), 100, cmap = "viridis")
@@ -133,7 +136,7 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = 
     phi_bin_midpoints[hist_data < 1e-6] = np.nan
     
     if overlap_with:
-        ax = overlap_with.gca()
+        ax = overlap_with
     else:
         fig, ax = plt.subplots(1, figsize = (10, 5))
     
@@ -158,7 +161,7 @@ def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
         hist_data.append(1/(2*np.pi) * qt.expect(rho_ss, phi_ket))
     
     if overlap_with:
-        ax = overlap_with.gca()
+        ax = overlap_with
     else:
         fig, ax = plt.subplots(1, figsize = (10, 5))
     
