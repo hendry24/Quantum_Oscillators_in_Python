@@ -65,7 +65,7 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
         
     '''
     
-    t_return = np.linspace(t_eval, t_end, timepoints_returned)
+    t_return = np.linspace(t_end-t_eval, t_end, timepoints_returned)
     
     Delta, Omega, gamma_1, gamma_2 = vdp_params.get_params()
     

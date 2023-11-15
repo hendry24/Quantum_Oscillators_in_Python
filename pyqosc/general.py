@@ -133,8 +133,7 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = 
     # normalize
     hist_data = np.array(hist_data)
     hist_data /= np.sum(hist_data)
-    phi_bin_midpoints[hist_data < 1e-6] = np.nan
-    
+        
     if overlap_with:
         ax = overlap_with
     else:
@@ -144,6 +143,8 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = 
     
     ax.set_xticks([0, np.pi, 2*np.pi])
     ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
+    
+    return phi_bin_midpoints, hist_data
     
     
 def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
@@ -158,7 +159,10 @@ def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
         phi_ket = 0
         for n in range(N):
             phi_ket += np.exp(1j * n * phi) * qt.basis(N, n)
-        hist_data.append(1/(2*np.pi) * qt.expect(rho_ss, phi_ket))
+        hist_data.append(qt.expect(rho_ss, phi_ket))
+    
+    hist_data = np.array(hist_data)
+    hist_data /= np.sum(hist_data)
     
     if overlap_with:
         ax = overlap_with
@@ -169,4 +173,5 @@ def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
     
     ax.set_xticks([0, np.pi, 2*np.pi])
     ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
-
+    
+    return phi_hist_midpoints, hist_data
