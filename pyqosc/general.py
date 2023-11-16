@@ -139,7 +139,7 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = 
     else:
         fig, ax = plt.subplots(1, figsize = (10, 5))
     
-    ax.bar(phi_bin_midpoints, hist_data, width = phi_bin_midpoints[1]-phi_bin_midpoints[0], ec = "k", color = "b")
+    ax.bar(phi_bin_midpoints, hist_data, width = phi_bin_midpoints[1]-phi_bin_midpoints[0], ec = "k", color = "b", label = "cl")
     
     ax.set_xticks([0, np.pi, 2*np.pi])
     ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
@@ -158,7 +158,7 @@ def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
         phi_ket = 0
         for n in range(N):
             phi_ket += np.exp(1j * n * phi) * qt.basis(N, n)
-        hist_data.append(qt.expect(rho_ss, phi_ket))
+        hist_data.append(qt.expect(rho_ss, phi_ket))    # No need to divide by 2pi as the array will be normalized below.
     
     hist_data = np.array(hist_data)
     hist_data /= np.sum(hist_data)
@@ -168,7 +168,7 @@ def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
     else:
         fig, ax = plt.subplots(1, figsize = (10, 5))
     
-    ax.bar(phi_hist_midpoints, hist_data, width = bin_width, ec = "k", color = "r")
+    ax.bar(phi_hist_midpoints, hist_data, width = bin_width, ec = "k", color = "r", label = "qm")
     
     ax.set_xticks([0, np.pi, 2*np.pi])
     ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
