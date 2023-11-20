@@ -6,6 +6,9 @@ import scipy as sp
 options = qt.Options(nsteps = int(1e12))
 plt.rcParams.update({"font.size" : 13})
 
+################################################################################################################################################################
+################################################################################################################################################################
+
 def steady_state(lindblad, plot_wigner = False, xlim = 6, ylim = 6, overlap_with = None):
     Ham, c_ops = lindblad
     
@@ -23,6 +26,9 @@ def steady_state(lindblad, plot_wigner = False, xlim = 6, ylim = 6, overlap_with
         ax.set_aspect("equal")
     
     return rho_ss
+
+################################################################################################################################################################
+################################################################################################################################################################
 
 def fidelity_ss(lindblad, rho0, timelst, plot = False):
     Ham, c_ops = lindblad
@@ -52,6 +58,9 @@ def fidelity_ss(lindblad, rho0, timelst, plot = False):
         
     return fid_lst
 
+################################################################################################################################################################
+################################################################################################################################################################
+
 def _get_cycle(r, phi):
     '''
     Given two arrays of [r] and [phi] for an oscillator in the phase space,
@@ -66,6 +75,9 @@ def _get_cycle(r, phi):
         if phi[i+1]>phi[0] and mark:
             break
     return r[:j], phi[:j]
+
+################################################################################################################################################################
+################################################################################################################################################################
 
 def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, plot = False, overlap_with = None):
     '''
@@ -148,7 +160,10 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, plot = False, o
         ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
     
     return phi_bin_midpoints, hist_data
-    
+
+################################################################################################################################################################
+################################################################################################################################################################
+
 def ss_q_phasedist(rho_ss, num_bins, plot = False, overlap_with = None):
     N = rho_ss.dims[0][0]
 
@@ -179,6 +194,9 @@ def ss_q_phasedist(rho_ss, num_bins, plot = False, overlap_with = None):
     
     return phi_hist_midpoints, hist_data
 
+################################################################################################################################################################
+################################################################################################################################################################
+
 def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101), 
                plot = False, overlap_with = None, label = r"qm"):
     Ham, c_ops = lindblad
@@ -200,10 +218,13 @@ def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101),
     
     return omega, spect, omega[spect == np.max(spect)]
 
+################################################################################################################################################################
+################################################################################################################################################################
+
 def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
-               plot = False, overlap_with = None, **plot_kwargs):
+               plot = False, overlap_with = None, get_max_only = False, **plot_kwargs):
     
-    # timelst_ss -= timelst_ss[0] # make time list start at 0
+    timelst_ss -= timelst_ss[0] # make time list start at 0
     n = len(timelst_ss)
     nT = timelst_ss[-1]
     T = nT/n
@@ -215,7 +236,8 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
     spect /= np.max(spect)
     
     omega = sp.fft.fftfreq(n, T) * 2 * np.pi
-    omega[spect < np.max(spect)] = np.nan
+    if get_max_only:
+        omega[spect < np.max(spect)] = np.nan
     
     if plot:
         if overlap_with:
