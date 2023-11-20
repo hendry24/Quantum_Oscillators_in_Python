@@ -92,17 +92,19 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
             phi[i] += np.pi
         phi[i] = phi[i]%(2*np.pi)
     
+    if overlap_with:
+        ax = overlap_with
+    else:
+        fig, ax = plt.subplots(1, figsize = (5,5))
+    
+    if abs(r[0]-r[1]) < 1e-6 and abs(phi[0]-phi[1]) < 1e-6:
+        marker = "o"
+    else:
+        marker = None
+        
+    ax.plot(r * np.cos(phi), r * np.sin(phi), marker = marker, mec = color, mfc = color, ms = 4)
+    
     if plot:
-        if overlap_with:
-            ax = overlap_with
-        else:
-            fig, ax = plt.subplot(figsize = (5,5))
-        
-        if abs(r[0]-r[1]) < 1e-6 and abs(phi[0]-phi[1]) < 1e-6:
-            marker = "o"
-        else:
-            marker = None
+        plt.show()
             
-        ax.plot(r * np.cos(phi), r * np.sin(phi), marker = marker, mec = color, mfc = color, ms = 4)
-        
     return t_return, r, phi, beta

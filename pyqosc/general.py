@@ -207,6 +207,7 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
     n = len(timelst_ss)
     nT = timelst_ss[-1]
     T = nT/n
+    print(n, T)
     
     acf = np.correlate(beta_ss, beta_ss, mode = "full")
     acf = acf[acf.size//2:]
@@ -215,7 +216,6 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
     spect /= np.max(spect)
     
     omega = sp.fft.fftfreq(n, T)
-    omega[spect != np.max(spect)] = np.nan
     
     if overlap_with:
         ax = overlap_with
