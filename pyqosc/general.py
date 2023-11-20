@@ -221,8 +221,8 @@ def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101),
 ################################################################################################################################################################
 ################################################################################################################################################################
 
-def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
-               plot = False, overlap_with = None, get_max_only = False, **plot_kwargs):
+def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0, plot = False, plot_bar = False, 
+                  overlap_with = None, get_max_only = False, **plot_kwargs):
     
     timelst_ss -= timelst_ss[0] # make time list start at 0
     n = len(timelst_ss)
@@ -245,7 +245,11 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
         else:
             fig, ax = plt.subplots(1, figsize = (5, 4))
         
-        ax.bar(omega, spect, **plot_kwargs)
+        if plot_bar:
+            ax.bar(omega, spect, **plot_kwargs)
+        else:
+            ax.plot(omega, spect, **plot_kwargs)
+            
         ax.legend(loc = "best")
         ax.set_ylabel(r"$S(\omega)$")
         ax.set_xlim(-omega_lim, omega_lim)
