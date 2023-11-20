@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 class vdp_params:
     def __init__(self, N, Delta = 16, Omega = 1, gamma_1 = 1, gamma_2 = 0.1):
+        self.name = "vdP"
         self.N = N
         self.Delta = Delta
         self.Omega = Omega
@@ -34,8 +35,8 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
     ----------
     Returns
     ----------
-    Polar coordinates [r] and [phi] for the phase space of the oscillator, calculated to
-    be compatible with the wigner function in the same space.
+    A tuple containing the time list, ``r``, ``phi``, and ``beta = r*exp(1j*phi)``, in that order, for the chosen
+    evaluation interval.
     
     ----------
     Parameters
@@ -77,11 +78,13 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
         r, phi = y
         return [(gamma_1/2-gamma_2*r**2)*r-Omega*np.cos(phi), Delta + Omega / r * np.sin(phi)]
         
-    sol = solve_ivp(adler, t_span = [0,t_end], y0 = init_polar, dense_output=True, method = method)
+    sol = solve_ivp(adler, t_span = [0, t_end], y0 = init_polar, dense_output=True, method = method)
     sol_vals = sol.sol(t_return)
     
     r = sol_vals[0] * np.sqrt(2) # to overlap correctly with the wigner function.
     phi = sol_vals[1]
+    
+    beta = r * np.exp(1j * phi)
     
     for i in range(timepoints_returned):
         if r[i]<0:
@@ -102,4 +105,4 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
             
         ax.plot(r * np.cos(phi), r * np.sin(phi), marker = marker, mec = color, mfc = color, ms = 4)
         
-    return r, phi
+    return t_return, r, phi, beta

@@ -1,6 +1,8 @@
 import numpy as np
 import qutip as qt
 import matplotlib.pyplot as plt
+import scipy as sp
+
 options = qt.Options(nsteps = int(1e12))
 plt.rcParams.update({"font.size" : 13})
 
@@ -13,7 +15,7 @@ def steady_state(lindblad, plot_wigner = False, xlim = 6, ylim = 6, overlap_with
         if overlap_with:
             ax = overlap_with
         else:
-            fig, ax = plt.subplots(1, figsize = (4, 4))
+            fig, ax = plt.subplots(1, figsize = (5, 5))
         x = np.linspace(-xlim, xlim, 31)
         y = np.linspace(-ylim, ylim, 31)
         plot = ax.contourf(x, y, qt.wigner(rho_ss, x, y), 100, cmap = "viridis")
@@ -174,3 +176,58 @@ def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
     ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
     
     return phi_hist_midpoints, hist_data
+
+def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101), 
+               plot = False, overlap_with = None, label = r"qm"):
+    Ham, c_ops = lindblad
+    N = Ham.dims[0][0]
+    b = qt.destroy(N)
+    
+    spect = qt.spectrum(Ham, omega, c_ops, b, b.dag())
+    spect_max = np.max(spect)
+    spect /= spect_max
+    
+    if overlap_with:
+        ax = overlap_with
+    else:
+        fig, ax = plt.subplots(1, figsize = (5, 4)) 
+    
+    ax.plot(omega, spect, label = label, ls = "--")
+    ax.legend(loc = "best")
+    ax.set_ylabel(r"$S(\omega)$")
+    
+    if plot:
+        plt.show()
+    
+    return omega, spect, spect_max
+
+def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
+               plot = False, overlap_with = None, label = r"cl"):
+    
+    n = len(timelst_ss)
+    nT = timelst_ss[-1]
+    T = nT/n
+    
+    acf = np.correlate(beta_ss, beta_ss, mode = "full")
+    acf = acf[acf.size//2:]
+
+    spect = np.abs(sp.fft.fft(acf))
+    spect /= np.max(spect)
+    
+    omega = sp.fft.fftfreq(n, T)
+    omega[spect != np.max(spect)] = np.nan
+    
+    if overlap_with:
+        ax = overlap_with
+    else:
+        fig, ax = plt.subplots(1, figsize = (5, 4))
+        
+    ax.bar(omega, spect, label = label, width=1e-2)
+    ax.legend(loc = "best")
+    ax.set_ylabel(r"$S(\omega)$")
+    ax.set_xlim(-omega_lim, omega_lim)
+    
+    if plot:
+        plt.show()
+
+    return omega, spect
