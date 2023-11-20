@@ -67,7 +67,7 @@ def _get_cycle(r, phi):
             break
     return r[:j], phi[:j]
 
-def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = None):
+def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, plot = False, overlap_with = None):
     '''
     Plot the probability histogram corresponding ot the expectation value of the oscillator
     given by the late-time dynamics (``r_over_cycle``, ``phi_over_cycle``). The probability
@@ -135,20 +135,21 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, overlap_with = 
     # normalize
     hist_data = np.array(hist_data)
     hist_data /= np.sum(hist_data)
+    
+    if plot:
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplots(1, figsize = (10, 5))
         
-    if overlap_with:
-        ax = overlap_with
-    else:
-        fig, ax = plt.subplots(1, figsize = (10, 5))
-    
-    ax.bar(phi_bin_midpoints, hist_data, width = phi_bin_midpoints[1]-phi_bin_midpoints[0], ec = "k", color = "b", label = "cl")
-    
-    ax.set_xticks([0, np.pi, 2*np.pi])
-    ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
+        ax.bar(phi_bin_midpoints, hist_data, width = phi_bin_midpoints[1]-phi_bin_midpoints[0], ec = "k", color = "b", label = "cl")
+        
+        ax.set_xticks([0, np.pi, 2*np.pi])
+        ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
     
     return phi_bin_midpoints, hist_data
     
-def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
+def ss_q_phasedist(rho_ss, num_bins, plot = False, overlap_with = None):
     N = rho_ss.dims[0][0]
 
     bin_width = 2*np.pi / num_bins
@@ -165,15 +166,16 @@ def ss_q_phasedist(rho_ss, num_bins, overlap_with = None):
     hist_data = np.array(hist_data)
     hist_data /= np.sum(hist_data)
     
-    if overlap_with:
-        ax = overlap_with
-    else:
-        fig, ax = plt.subplots(1, figsize = (10, 5))
-    
-    ax.bar(phi_hist_midpoints, hist_data, width = bin_width, ec = "k", color = "r", label = "qm")
-    
-    ax.set_xticks([0, np.pi, 2*np.pi])
-    ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
+    if plot:
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplots(1, figsize = (10, 5))
+        
+        ax.bar(phi_hist_midpoints, hist_data, width = bin_width, ec = "k", color = "r", label = "qm")
+        
+        ax.set_xticks([0, np.pi, 2*np.pi])
+        ax.set_xticklabels([r"$0$", r"$\pi$", r"$2\pi$"])
     
     return phi_hist_midpoints, hist_data
 
@@ -187,27 +189,25 @@ def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101),
     spect_max = np.max(spect)
     spect /= spect_max
     
-    if overlap_with:
-        ax = overlap_with
-    else:
-        fig, ax = plt.subplots(1, figsize = (5, 4)) 
-    
-    ax.plot(omega, spect, label = label, ls = "--")
-    ax.legend(loc = "best")
-    ax.set_ylabel(r"$S(\omega)$")
-    
     if plot:
-        plt.show()
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplots(1, figsize = (5, 4)) 
+        
+        ax.plot(omega, spect, label = label, ls = "--")
+        ax.legend(loc = "best")
+        ax.set_ylabel(r"$S(\omega)$")
     
     return omega, spect, spect_max
 
 def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
                plot = False, overlap_with = None, label = r"cl"):
     
+    timelst_ss -= timelst_ss[0] # make time list start at 0
     n = len(timelst_ss)
     nT = timelst_ss[-1]
     T = nT/n
-    print(n, T)
     
     acf = np.correlate(beta_ss, beta_ss, mode = "full")
     acf = acf[acf.size//2:]
@@ -217,17 +217,15 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
     
     omega = sp.fft.fftfreq(n, T)
     
-    if overlap_with:
-        ax = overlap_with
-    else:
-        fig, ax = plt.subplots(1, figsize = (5, 4))
-        
-    ax.bar(omega, spect, label = label, width=1e-2)
-    ax.legend(loc = "best")
-    ax.set_ylabel(r"$S(\omega)$")
-    ax.set_xlim(-omega_lim, omega_lim)
-    
     if plot:
-        plt.show()
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplots(1, figsize = (5, 4))
+        
+        ax.bar(omega, spect, label = label, width=1e-2)
+        ax.legend(loc = "best")
+        ax.set_ylabel(r"$S(\omega)$")
+        ax.set_xlim(-omega_lim, omega_lim)
 
     return omega, spect

@@ -25,8 +25,8 @@ def vdp_lindblad(vdp_params):
 
     return -Delta * b.dag() * b + 1j * Omega * (b - b.dag()), [np.sqrt(gamma_1) * b.dag(), np.sqrt(gamma_2) * b ** 2]
 
-def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100, 
-                init_polar = [1, 0], plot = False, method = "Radau", overlap_with = None,
+def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100, method = "Radau",
+                init_polar = [1, 0], plot = False, overlap_with = None,
                 color = "k"):
     '''
     Solve the equation of motion for the expectation value of the annihilation operator
@@ -52,18 +52,18 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
     
     ``timepoints_returned`` : ``100``
         Number of timepoints returned.
-        
-    ``init_polar``  : ``[1,0]``
-        Initial value for [r] and [phi], respectively.
-    
-    ``plot``    : ``False``
-        Plot the results for t_eval.
 
     ``method``  : ``Radau``
         Method for ``scipy.integrate.solve_ivp`` evaluation.
         
+    ``init_polar``  : ``[1,0]``
+        Initial value for ``r`` and ``phi``, respectively.
+    
+    ``plot``    : ``False``
+        Put in ``x`` and ``y`` obtained from ``r`` and  ``phi`` for plotting.
+        
     ``overlap_with``    : None
-        Plot in the given axis. If ``None``, then make a new axis.
+        Plot in the given axis. If ``None``, then make a new matplotlib figure and axes object.
         
     ``color``   :   ``"k"``
         Color of the curve.
@@ -92,19 +92,17 @@ def vdp_expvalb(vdp_params, t_end = 1e2, t_eval = 10, timepoints_returned = 100,
             phi[i] += np.pi
         phi[i] = phi[i]%(2*np.pi)
     
-    if overlap_with:
-        ax = overlap_with
-    else:
-        fig, ax = plt.subplots(1, figsize = (5,5))
-    
-    if abs(r[0]-r[1]) < 1e-6 and abs(phi[0]-phi[1]) < 1e-6:
-        marker = "o"
-    else:
-        marker = None
-        
-    ax.plot(r * np.cos(phi), r * np.sin(phi), marker = marker, mec = color, mfc = color, ms = 4)
-    
     if plot:
-        plt.show()
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplots(1, figsize = (5,5))
+        
+        if abs(r[0]-r[1]) < 1e-6 and abs(phi[0]-phi[1]) < 1e-6:
+            marker = "o"
+        else:
+            marker = None
+            
+        ax.plot(r * np.cos(phi), r * np.sin(phi), marker = marker, mec = color, mfc = color, ms = 4)
             
     return t_return, r, phi, beta
