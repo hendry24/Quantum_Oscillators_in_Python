@@ -186,8 +186,7 @@ def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101),
     b = qt.destroy(N)
     
     spect = qt.spectrum(Ham, omega, c_ops, b, b.dag())
-    spect_max = np.max(spect)
-    spect /= spect_max
+    spect /= np.max(spect)
     
     if plot:
         if overlap_with:
@@ -199,23 +198,24 @@ def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101),
         ax.legend(loc = "best")
         ax.set_ylabel(r"$S(\omega)$")
     
-    return omega, spect, spect_max
+    return omega, spect, omega[spect == np.max(spect)]
 
 def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
-               plot = False, overlap_with = None, label = r"cl"):
+               plot = False, overlap_with = None, **plot_kwargs):
     
-    timelst_ss -= timelst_ss[0] # make time list start at 0
+    # timelst_ss -= timelst_ss[0] # make time list start at 0
     n = len(timelst_ss)
     nT = timelst_ss[-1]
     T = nT/n
     
-    acf = np.correlate(beta_ss, beta_ss, mode = "full")
+    acf = sp.signal.correlate(beta_ss, beta_ss)
     acf = acf[acf.size//2:]
 
-    spect = np.abs(sp.fft.fft(acf))
+    spect = np.abs(sp.fft.fft(acf))    
     spect /= np.max(spect)
     
-    omega = sp.fft.fftfreq(n, T)
+    omega = sp.fft.fftfreq(n, T) * 2 * np.pi
+    omega[spect < np.max(spect)] = np.nan
     
     if plot:
         if overlap_with:
@@ -223,9 +223,9 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0,
         else:
             fig, ax = plt.subplots(1, figsize = (5, 4))
         
-        ax.bar(omega, spect, label = label, width=1e-2)
+        ax.bar(omega, spect, **plot_kwargs)
         ax.legend(loc = "best")
         ax.set_ylabel(r"$S(\omega)$")
         ax.set_xlim(-omega_lim, omega_lim)
 
-    return omega, spect
+    return omega, spect, omega[spect == np.max(spect)]
