@@ -229,7 +229,7 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0, plot = False, plot_bar =
     nT = timelst_ss[-1]
     T = nT/n
     
-    acf = sp.signal.correlate(beta_ss, beta_ss)
+    acf = sp.signal.correlate(beta_ss, beta_ss, mode = "valid")
     acf = acf[acf.size//2:]
 
     spect = np.abs(sp.fft.fft(acf))    
