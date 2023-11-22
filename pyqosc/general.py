@@ -222,22 +222,18 @@ def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101),
 ################################################################################################################################################################
 
 def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0, plot = False, plot_bar = False, 
-                  overlap_with = None, get_max_only = False, **plot_kwargs):
+                  overlap_with = None, **plot_kwargs):
     
-    timelst_ss -= timelst_ss[0] # make time list start at 0
     n = len(timelst_ss)
-    nT = timelst_ss[-1]
+    nT = timelst_ss[-1] - timelst_ss[0] # assume the beginning of the steady-state time list to be zero.
     T = nT/n
     
-    acf = sp.signal.correlate(beta_ss, beta_ss, mode = "valid")
-    acf = acf[acf.size//2:]
+    acf = sp.signal.correlate(beta_ss, beta_ss, mode = "same")
 
-    spect = np.abs(sp.fft.fft(acf))    
+    spect = np.abs(sp.fft.fft(acf))
     spect /= np.max(spect)
     
     omega = sp.fft.fftfreq(n, T) * 2 * np.pi
-    if get_max_only:
-        omega[spect < np.max(spect)] = np.nan
     
     if plot:
         if overlap_with:
@@ -254,4 +250,4 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0, plot = False, plot_bar =
         ax.set_ylabel(r"$S(\omega)$")
         ax.set_xlim(-omega_lim, omega_lim)
 
-    return omega, spect, omega[spect == np.max(spect)]
+    return omega, spect, omega[np.where(spect==np.max(spect))]
