@@ -250,4 +250,7 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0, plot = False, plot_bar =
         ax.set_ylabel(r"$S(\omega)$")
         ax.set_xlim(-omega_lim, omega_lim)
 
-    return omega, spect, omega[np.where(spect==np.max(spect))]
+    return omega, spect, omega[np.where(spect==np.max(spect))][0]
+
+################################################################################################################################################################
+################################################################################################################################################################
