@@ -125,7 +125,7 @@ class vdp:
             else:
                 marker = None
                 
-            ax.plot(r * np.cos(phi), r * np.sin(phi), marker = marker, mec = color, mfc = color, ms = 4)
+            ax.plot(r * np.cos(phi), r * np.sin(phi), marker = marker, mec = color, mfc = color, c = color, ms = 4)
                     
         return t_return, r, phi, beta
     
@@ -134,12 +134,18 @@ class vdp:
         Given two arrays of [r] and [phi] for an oscillator in the phase space,
         slice the arrays to get the values over one period of oscillation.
         '''
-        mark = False
+        
+        increase = False
+        if phi[1]>phi[0]:
+            increase = True
+        mark = 0
         j = 0
-        for i in range(len(phi) - 1):
+        for i in range(1, len(phi) - 1):
             j += 1
-            if phi[i+1]<phi[1]:
-                mark = True
-            if phi[i+1]>phi[0] and mark:
+            if (phi[i-1]-phi[i])*(phi[i]-phi[i+1]) < 0:
+                mark += 1
+            if mark == 2 and increase and phi[i+1]>phi[0]:
                 break
-        return r[:j], phi[:j]
+            if mark == 2 and not(increase) and phi[i+1]<phi[0]:
+                break
+        return r[:j+1], phi[:j+1]
