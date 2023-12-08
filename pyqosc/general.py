@@ -3,7 +3,7 @@ import qutip as qt
 import matplotlib.pyplot as plt
 import scipy as sp
 
-options = qt.Options(nsteps = int(1e12))
+options = qt.Options(nsteps = int(1e6))
 plt.rcParams.update({"font.size" : 13})
 
 ################################################################################################################################################################
@@ -61,29 +61,11 @@ def fidelity_ss(lindblad, rho0, timelst, plot = False):
 ################################################################################################################################################################
 ################################################################################################################################################################
 
-def _get_cycle(r, phi):
-    '''
-    Given two arrays of [r] and [phi] for an oscillator in the phase space,
-    slice the arrays to get the values over one period of oscillation.
-    '''
-    mark = False
-    j = 0
-    for i in range(len(phi) - 1):
-        j += 1
-        if phi[i+1]<phi[1]:
-            mark = True
-        if phi[i+1]>phi[0] and mark:
-            break
-    return r[:j], phi[:j]
-
-################################################################################################################################################################
-################################################################################################################################################################
-
-def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, plot = False, overlap_with = None):
+def ss_c_phasedist(rho_ss, late_r_cycle, late_phi_cycle, num_bins = 36, plot = False, overlap_with = None):
     '''
     Plot the probability histogram corresponding ot the expectation value of the oscillator
-    given by the late-time dynamics (``r_over_cycle``, ``phi_over_cycle``). The probability
-    is taken with respect to the steady-state Wigner function. 
+    given by the late-time dynamics (``late_r_cycle``, ``late_phi_cycle``) in the phase space. 
+    The probability is taken with respect to the steady-state Wigner function. 
     
     If there are mre than one points over a given interval of phi, then the positions are 
     averaged, then the Wigner function is evaluated with respect to that point.
@@ -91,7 +73,7 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, plot = False, o
     ----------
     Returns
     ----------
-    A matplotlib plot.
+    Positions of histogram midpoints and the corresponding values, ``phi_bin_midpoints, hist_data``.
     
     ----------
     Parameters
@@ -100,21 +82,20 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, plot = False, o
     ``rho_ss``  :
         The steady-state density matrix.
         
-    ``late_r``  :
-        Late-time values for r. Get from e.g. [vdp_expvalb].
+    ``late_r_cycle``  :
+        Late-time values for r over one cycle. Get from e.g. ``vdp.adler(...,one_cycle=True)``.
         
-    ``late_phi``    :
-        Late-time values for phi. Get from e.g. [vdp_expvalb].
+    ``late_phi_cycle``    :
+        Late-time values for phi over one cycle. Get from e.g. ``vdp.adler(...,one_cycle=True)``.
         
     ``num_bins``    :   36
         Number of histogram bins.
         
-    ``overlap_with``    : ``matplotlib.axes.Axes`` object
-        Plot in an existing axis, useful for comparisons.
+    ``overlap_with``    : None
+        ``matplotlib.axes.Axes``object to plot in. By default, create a new figure and axis to
+        plot in.
         
     '''
-    
-    r_cycle, phi_cycle = _get_cycle(late_r, late_phi)
     
     phi_hist = np.linspace(0, 2*np.pi, num_bins+1)
     phi_bin_midpoints = np.linspace(phi_hist[1]/2, 2*np.pi-phi_hist[1]/2, num_bins)
@@ -125,18 +106,18 @@ def ss_expval_phasedist(rho_ss, late_r, late_phi, num_bins = 36, plot = False, o
     for i in range(num_bins):
         x = y = 0
         get_index = []
-        for j in range(len(phi_cycle)):
+        for j in range(len(late_phi_cycle)):
             if j in ignore_lst:
                 continue
             
-            if phi_hist[i] < phi_cycle[j] < phi_hist[i+1]:            
+            if phi_hist[i] < late_phi_cycle[j] < phi_hist[i+1]:            
                 get_index.append(j)
                 ignore_lst.append(j)
         
         if get_index:
             for index in get_index:
-                x += r_cycle[index] * np.cos(phi_cycle[index])
-                y += r_cycle[index] * np.sin(phi_cycle[index])
+                x += late_r_cycle[index] * np.cos(late_phi_cycle[index])
+                y += late_r_cycle[index] * np.sin(late_phi_cycle[index])
             x /= len(get_index)
             y /= len(get_index)
         
@@ -216,25 +197,49 @@ def ss_q_spectrum(lindblad, omega = np.linspace(-1, 1, 101),
         ax.legend(loc = "best")
         ax.set_ylabel(r"$S(\omega)$")
     
-    return omega, spect, omega[spect == np.max(spect)]
+    return omega, spect, omega[spect == np.max(spect)][0]
 
 ################################################################################################################################################################
 ################################################################################################################################################################
 
-def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0, plot = False, plot_bar = False, 
+def ss_c_acf(timelst, expval, plot = False, overlap_with = None, **plot_kwargs):
+    
+    l = len(timelst)
+    tlag = [timelst[0] - timelst[-i] for i in range(1, l+1)] + [timelst[i]-timelst[0] for i in range(1, l)]
+
+    acf = sp.signal.correlate(expval, expval, mode = "full")
+    # The function returns the autocorrelation of beta with respect to lag. The center of
+    # the list corresponds to zero lag, while the ends correspond to maximum lag with which
+    # the autocorrelation is not zero. The mode used is "full"
+    # since we need the values over all lags to get the best spectral density function.
+    
+    if plot:
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplots(1, figsize = (5,4))
+                
+        ax.plot(tlag, np.real(acf), label = r"Re{acf}")
+        ax.plot(tlag, np.imag(acf), label = r"Im{acf}")
+        ax.set_xlabel(r"lag $\tau$")
+        
+        ax.legend(loc = "best")
+            
+    return tlag, acf
+    
+def ss_c_spectrum(timelst_ss, expval_ss, omega_lim = 1.0, plot = False, plot_bar = False, 
                   overlap_with = None, **plot_kwargs):
     
-    n = len(timelst_ss)
-    nT = timelst_ss[-1] - timelst_ss[0] # assume the beginning of the steady-state time list to be zero.
-    T = nT/n
+    tlag, acf = ss_c_acf(timelst_ss, expval_ss)
     
-    acf = sp.signal.correlate(beta_ss, beta_ss, mode = "same")
+    n = len(tlag)
+    T = (tlag[-1] - tlag[0]) / n
+
+    omega = sp.fft.fftfreq(n, T) * 2 * np.pi
 
     spect = np.abs(sp.fft.fft(acf))
     spect /= np.max(spect)
-    
-    omega = sp.fft.fftfreq(n, T) * 2 * np.pi
-    
+
     if plot:
         if overlap_with:
             ax = overlap_with
@@ -254,3 +259,36 @@ def ss_c_spectrum(timelst_ss, beta_ss, omega_lim = 1.0, plot = False, plot_bar =
 
 ################################################################################################################################################################
 ################################################################################################################################################################
+
+def ss_qsl(Ham, c_ops, rho_0, timelst, plot = False, overlap_with = None):
+    
+    rho_ss = qt.steadystate(Ham, c_ops)
+    
+    rho_t = qt.mesolve(Ham, rho_0, timelst, c_ops).states
+    
+    l = len(timelst)
+    dt = timelst[1]-timelst[0]
+    mean_stdev_t = [np.nan]
+    s = 0
+    stdev0 = np.sqrt(qt.variance(Ham, rho_t[0]))
+    for i in range(1,l):
+        stdev = np.sqrt(qt.variance(Ham, rho_t[i]))
+        mean_stdev_t.append((dt/(timelst[i]-timelst[0])) * (stdev0/2 + s + stdev/2))    # Usual trapz formula, divided by the total time
+        s += stdev
+    
+    bures_angle_t = [qt.bures_angle(rho_t[i], rho_ss) for i in range(l)]
+        
+    qsl_t = [0]
+    for i in range(1,l):
+        qsl_t.append(bures_angle_t[i] / mean_stdev_t[i])
+    
+    if plot:
+        if overlap_with:
+            ax = overlap_with
+        else:
+            fig, ax = plt.subplots(1, figsize = (5, 4), constrained_layout = True)
+            ax.set_ylabel(r"$\tau_\mathrm{QSL}$")
+            ax.set_xlabel(r"$t$")
+        ax.plot(timelst[1:], qsl_t[1:])
+        
+    return qsl_t
