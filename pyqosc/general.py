@@ -336,7 +336,7 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
             
         def stdev_sum(t):
             H_D_t, rho_t = H_D(t)
-            return np.sqrt(qt.variance(Ham, rho_t)) + np.sqrt(qt.variance(H_D_t, rho_t))
+            return np.sqrt(qt.variance(Ham, rho_t)) + np.sqrt(qt.expect(H_D_t**2, rho_t))
         
         #####
         
@@ -374,7 +374,7 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
             for i in range(len(c_ops)):
                 for m in range(N):
                     for n in range(N):
-                        if not(p[m]==0 or p[n]==0):
+                        if p[m]*p[n]>0:
                             sigma += Wmn[i][m][n] * p[n] * np.log(p[n]/p[m])
                         A += (p[n]+p[m]) * Wmn[i][m][n]
             return sigma, A
@@ -395,6 +395,11 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
         def time_trapz(x, y):
             return sp.integrate.trapz(y=y, x=x)
          
-        return time_quad(stdev_sum) + np.sqrt(0.5 * time_trapz(timelst, sigma_lst) * time_trapz(timelst, A_lst)) - d_tr
+        qsl = time_quad(stdev_sum) + np.sqrt(0.5 * time_trapz(timelst, sigma_lst) * time_trapz(timelst, A_lst)) - d_tr
+        
+        if qsl <= 0:
+            raise ValueError("Invalid value of QSL is obtained. Algorithm fails.")
+        
+        return qsl 
         
     return sp.optimize.fsolve(funo, init_tau, xtol = fsolve_xtol, maxfev = fsolve_maxfev)[0]
