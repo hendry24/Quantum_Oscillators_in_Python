@@ -5,12 +5,11 @@ import scipy as sp
 
 options = qt.Options(nsteps = int(1e6))
 plt.rcParams.update({"font.size" : 13})
-
+    
 ################################################################################################################################################################
 ################################################################################################################################################################
 
-def steady_state(lindblad, plot_wigner = False, xlim = 6, ylim = 6, overlap_with = None):
-    Ham, c_ops = lindblad
+def steady_state(Ham, c_ops, plot_wigner = False, xlim = 6, ylim = 6, overlap_with = None):
     
     rho_ss = qt.steadystate(Ham, c_ops)
     
@@ -30,33 +29,51 @@ def steady_state(lindblad, plot_wigner = False, xlim = 6, ylim = 6, overlap_with
 ################################################################################################################################################################
 ################################################################################################################################################################
 
-def fidelity_ss(lindblad, rho0, timelst, plot = False):
-    Ham, c_ops = lindblad
+def qdistance_to_ss(Ham, c_ops, rho0, timelst, dist_func = qt.fidelity, steadystate = None, 
+                    plot = False, overlap_with=None):
+
+    if not(overlap_with):
+        fig, ax = plt.subplots(1, figsize = (5, 4))
+    else:
+        ax = overlap_with
+        
+    if not(steadystate):
+        rho_ss = steady_state(Ham, c_ops)
+    else:
+        rho_ss = steadystate
+        
+    rho_t = qt.mesolve(Ham, rho0, timelst, c_ops).states
     
-    rho_ss = steady_state(lindblad)
-    
-    rho = qt.mesolve(Ham, rho0, timelst, c_ops).states
-    
-    fid_lst = []
-    xx = True
+    dist_lst = []
+    mark = True
     for i in range(len(timelst)):
-        fid = qt.fidelity(rho[i], rho_ss)
-        fid_lst.append(fid)
-        if xx and abs(fid - 1.0) < 1e-6:
-            xx = False
-            ax.axvline(timelst[i], ls = ":", c = 'r', label = f"t = {round(timelst[i], 2)}")
+        dist_lst.append(dist := dist_func(rho_t[i], rho_ss))
+        
+        # Mark when steady state is reached.
+        if mark and abs(dist - dist_func(rho_ss, rho_ss)) < 1e-3:
+            mark = False
+            ax.axvline(timelst[i], ls = ":", c = 'r', label = f"steady state reached at \n t = {round(timelst[i], 2)}")
     
     if plot:
-        fig, ax = plt.subplots(1, figsize = (4, 4))
-        ax.plot(timelst, fid_lst, c = 'b')
-        ax.axhline(1.0, c = "k", ls = ":", alpha = 0.5)
-        ax.set_xlabel("time")
-        ax.set_ylabel("fidelity wrt. steady-state")
-        ax.set_xlim(0, timelst[-1])
-        ax.set_ylim(0, 1.05)
-        ax.legend(loc = "lower right")
         
-    return fid_lst
+        name_dict = {qt.fidelity : "State fidelity",
+                     qt.bures_angle : "Bures angle",
+                     qt.bures_dist : "Bures distance",
+                     qt.hellinger_dist : "Hellinger distance",
+                     qt.hilbert_dist : "Hilbert-Schmidt distance",
+                     qt.tracedist : "Trace distance"}
+        
+        if not(overlap_with):
+            ax.set_xlabel("time")
+            ax.set_ylabel(f"{name_dict.get(dist_func, 'Distance')} wrt. steady-state")
+            ax.set_xlim(0, timelst[-1])
+            ax.set_ylim(0, 1.05)
+                        
+        ax.plot(timelst, dist_lst, c = 'b')
+        ax.axhline(1.0, c = "k", ls = ":", alpha = 0.5)
+        ax.legend(loc = "best")
+        
+    return dist_lst 
 
 ################################################################################################################################################################
 ################################################################################################################################################################
@@ -296,6 +313,113 @@ def ss_qsl_mt(Ham, c_ops, rho_0, timelst, plot = False, overlap_with = None):
 ################################################################################################################################################################
 ################################################################################################################################################################
 
+# def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3, 
+#                 fsolve_maxfev = int(1e6), mesolve_timepoints = 101, quad_limit = 101):
+    
+#     N = qosc.N
+#     Ham, c_ops = qosc.dynamics()
+#     rho_ss = qt.steadystate(Ham, c_ops)
+    
+#     d_tr = qt.tracedist(rho_0, rho_ss)
+    
+#     def rho(t):
+#         '''Get density matrix at time t using mesolve'''
+#         return qt.mesolve(Ham, rho_0, np.linspace(0, t, mesolve_timepoints), c_ops, options = qt.Options(nsteps=int(1e9))).states[-1]
+                    
+#     def D(t):
+#         s = 0
+#         rho_t = rho(t)
+#         for c_op in c_ops:
+#             s += c_op * rho_t * c_op.dag() - 0.5 * qt.commutator(c_op.dag()*c_op, rho_t, kind = "anti")
+#         return s, rho_t
+    
+#     def H_D(t):
+#         D_t, rho_t = D(t)
+#         rho_eigvals, rho_eigstates = rho_t.eigenstates()
+#         out = 0
+#         for m in range(N):
+#             pm = rho_eigvals[m]
+#             bm = rho_eigstates[m]
+#             for n in range(N):
+#                 pn = rho_eigvals[n]
+#                 if pn==pm:
+#                     continue
+#                 bn = rho_eigstates[n]
+#                 out += D_t.matrix_element(bm, bn) / (pn-pm) * bm * bn.dag()
+#         out *= 1j
+#         return out, rho_t
+        
+#     def stdev_sum(t):
+#         H_D_t, rho_t = H_D(t)
+#         return np.sqrt(qt.variance(Ham, rho_t)) + np.sqrt(qt.expect(H_D_t**2, rho_t))
+    
+#     #####
+    
+#     def W(t):
+#         rho_t = rho(t)
+#         rho_eigvals, rho_eigstates = rho_t.eigenstates()
+        
+#         Wmn = np.empty(shape=(len(c_ops),N,N))
+#         # Assuming [gamma] is independent of [omega], [W_{mn}^{omega,alpha}] and [W_{nm}^{-omega,alpha}]
+#         # are identical.
+        
+#         for i in range(len(c_ops)):
+            
+#             omega_is_0 = False
+#             if qt.commutator(c_ops[i],Ham)==0:
+#                 omega_is_0 = True
+            
+#             for m in range(N):
+#                 bm = rho_eigstates[m]
+                
+#                 for n in range(N):
+#                     if m==n and omega_is_0:
+#                         Wmn[i][m][n] = 0
+                    
+#                     bn = rho_eigstates[n]
+                    
+#                     Wmn[i][m][n] = np.abs(bm.overlap(c_ops[i]*bn))**2
+                    
+#         return rho_eigvals, Wmn
+    
+#     def sigma_and_A(t):
+#         p, Wmn = W(t)
+#         sigma = 0
+#         A = 0
+#         for i in range(len(c_ops)):
+#             for m in range(N):
+#                 for n in range(N):
+#                     if p[m]*p[n]>0:
+#                         sigma += Wmn[i][m][n] * p[n] * np.log(p[n]/p[m])
+#                     A += (p[n]+p[m]) * Wmn[i][m][n]
+#         return sigma, A
+                
+#         #####
+#     def funo(tau):
+        
+#         def time_quad(func):
+#             return sp.integrate.quad(func, 0, tau, limit = quad_limit)[0]
+        
+#         timelst = np.linspace(0, tau, quad_limit).flatten()
+#         sigma_lst = np.empty(shape=(quad_limit,))
+#         A_lst = np.empty(shape=(quad_limit,))
+#         sigma_lst[0] = 0
+#         A_lst[0] = 0
+#         for i in range(1, quad_limit):
+#             sigma_lst[i], A_lst[i] = sigma_and_A(float(timelst[i])) # Need to convert to float or qutip mesolve won't work.
+        
+#         def time_trapz(x, y):
+#             return sp.integrate.trapz(y=y, x=x)
+         
+#         qsl = time_quad(stdev_sum) + np.sqrt(0.5 * time_trapz(timelst, sigma_lst) * time_trapz(timelst, A_lst)) - d_tr
+        
+#         if qsl <= 0:
+#             raise ValueError("Invalid value of QSL is obtained. Algorithm fails.")
+        
+#         return qsl 
+        
+#     return sp.optimize.fsolve(funo, init_tau, xtol = fsolve_xtol, maxfev = fsolve_maxfev)[0]
+
 def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3, 
                 fsolve_maxfev = int(1e6), mesolve_timepoints = 101, quad_limit = 101):
     
@@ -303,83 +427,82 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
     Ham, c_ops = qosc.dynamics()
     rho_ss = qt.steadystate(Ham, c_ops)
     
-    d_tr = ((rho_0-rho_ss).dag()*(rho_0-rho_ss)).sqrtm().tr() * 0.5
+    d_tr = qt.tracedist(rho_0, rho_ss)
     
-    def funo(tau):
-        
-        def rho(t):
-            '''Get density matrix at time t using mesolve'''
-            return qt.mesolve(Ham, rho_0, np.linspace(0, t, mesolve_timepoints), c_ops, options = qt.Options(nsteps=int(1e9))).states[-1]
-                       
-        def D(t):
-            s = 0
-            rho_t = rho(t)
-            for c_op in c_ops:
-                s += c_op * rho_t * c_op.dag() - 0.5 * qt.commutator(c_op.dag()*c_op, rho_t, kind = "anti")
-            return s, rho_t
-        
-        def H_D(t):
-            D_t, rho_t = D(t)
-            rho_eigvals, rho_eigstates = rho_t.eigenstates()
-            out = 0
-            for m in range(N):
-                pm = rho_eigvals[m]
-                bm = rho_eigstates[m]
-                for n in range(N):
-                    pn = rho_eigvals[n]
-                    if pn==pm:
-                        continue
-                    bn = rho_eigstates[n]
-                    out += D_t.matrix_element(bm, bn) / (pn-pm) * bm * bn.dag()
-            out *= 1j
-            return out, rho_t
-            
-        def stdev_sum(t):
-            H_D_t, rho_t = H_D(t)
-            return np.sqrt(qt.variance(Ham, rho_t)) + np.sqrt(qt.expect(H_D_t**2, rho_t))
-        
-        #####
-        
-        def W(t):
-            rho_t = rho(t)
-            rho_eigvals, rho_eigstates = rho_t.eigenstates()
-            
-            Wmn = np.empty(shape=(len(c_ops),N,N))
-            # Assuming [gamma] is independent of [omega], [W_{mn}^{omega,alpha}] and [W_{nm}^{-omega,alpha}]
-            # are identical.
-            
-            for i in range(len(c_ops)):
-                
-                omega_is_0 = False
-                if qt.commutator(c_ops[i],Ham)==0:
-                    omega_is_0 = True
-                
-                for m in range(N):
-                    bm = rho_eigstates[m]
+    def rho(t):
+        '''Get density matrix at time t using mesolve'''
+        return qt.mesolve(Ham, rho_0, np.linspace(0, t, mesolve_timepoints), c_ops, options = qt.Options(nsteps=int(1e9))).states[-1]
                     
-                    for n in range(N):
-                        if m==n and omega_is_0:
-                            Wmn[i][m][n] = 0
-                        
-                        bn = rho_eigstates[n]
-                        
-                        Wmn[i][m][n] = np.abs(bm.overlap(c_ops[i]*bn))**2
-                        
-            return rho_eigvals, Wmn
+    def D(t):
+        s = 0
+        rho_t = rho(t)
+        for c_op in c_ops:
+            s += c_op * rho_t * c_op.dag() - 0.5 * qt.commutator(c_op.dag()*c_op, rho_t, kind = "anti")
+        return s, rho_t
+    
+    def H_D(t):
+        D_t, rho_t = D(t)
+        rho_eigvals, rho_eigstates = rho_t.eigenstates()
+        out = 0
+        for m in range(N):
+            pm = rho_eigvals[m]
+            bm = rho_eigstates[m]
+            for n in range(N):
+                pn = rho_eigvals[n]
+                if pn==pm:
+                    continue
+                bn = rho_eigstates[n]
+                out += D_t.matrix_element(bm, bn) / (pn-pm) * bm * bn.dag()
+        out *= 1j
+        return out, rho_t
         
-        def sigma_and_A(t):
-            p, Wmn = W(t)
-            sigma = 0
-            A = 0
-            for i in range(len(c_ops)):
-                for m in range(N):
-                    for n in range(N):
-                        if p[m]*p[n]>0:
-                            sigma += Wmn[i][m][n] * p[n] * np.log(p[n]/p[m])
-                        A += (p[n]+p[m]) * Wmn[i][m][n]
-            return sigma, A
+    def stdev_sum(t):
+        H_D_t, rho_t = H_D(t)
+        return np.sqrt(qt.variance(Ham, rho_t)) + np.sqrt(qt.expect(H_D_t**2, rho_t))
+    
+    #####
+    
+    def W(t):
+        rho_t = rho(t)
+        rho_eigvals, rho_eigstates = rho_t.eigenstates()
+        
+        Wmn = np.empty(shape=(len(c_ops),N,N))
+        # Assuming [gamma] is independent of [omega], [W_{mn}^{omega,alpha}] and [W_{nm}^{-omega,alpha}]
+        # are identical.
+        
+        for i in range(len(c_ops)):
+            
+            omega_is_0 = False
+            if qt.commutator(c_ops[i],Ham)==0:
+                omega_is_0 = True
+            
+            for m in range(N):
+                bm = rho_eigstates[m]
+                
+                for n in range(N):
+                    if m==n and omega_is_0:
+                        Wmn[i][m][n] = 0
+                    
+                    bn = rho_eigstates[n]
+                    
+                    Wmn[i][m][n] = np.abs(bm.overlap(c_ops[i]*bn))**2
+                    
+        return rho_eigvals, Wmn
+    
+    def sigma_and_A(t):
+        p, Wmn = W(t)
+        sigma = 0
+        A = 0
+        for i in range(len(c_ops)):
+            for m in range(N):
+                for n in range(N):
+                    if p[m]*p[n]>0:
+                        sigma += Wmn[i][m][n] * p[n] * np.log(p[n]/p[m])
+                    A += (p[n]+p[m]) * Wmn[i][m][n]
+        return sigma, A
                 
         #####
+    def funo(tau):
         
         def time_quad(func):
             return sp.integrate.quad(func, 0, tau, limit = quad_limit)[0]
