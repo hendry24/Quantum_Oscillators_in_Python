@@ -2,6 +2,7 @@ import numpy as np
 import qutip as qt
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+from pyqosc.shortcut_trajectories import impens
 
 class vdp:
     def __init__(self, N, omega_0 = 1, omega = 1, Omega_1 = 0, Omega_2 = 1, gamma_1 = 1, gamma_2 = 0.1):
@@ -23,8 +24,8 @@ class vdp:
         if not(b):
             b = qt.destroy(self.N)
             
-        cond_A = isinstance(self.Omega_1, np.ndarray)
-        cond_B = isinstance(self.Omega_2, np.ndarray)
+        cond_A = isinstance(self.Omega_1, (list, np.ndarray))
+        cond_B = isinstance(self.Omega_2, (list, np.ndarray))
         if cond_A or cond_B:
             self.Ham = [-self.Delta * b.dag() * b]
             
@@ -189,6 +190,92 @@ class vdp:
                 break
         return r[:j+1], phi[:j+1]
 
+    def shortcut(self, rho_0, tau, trajectory_func, err_tol_b = 1e-3, timepoints = 101, special = None,
+                 maxiter = 100, report = True, plot_resulting_trajectory = False, save_to_osc = False,
+                 **trajectory_func_kwargs):
+        
+        special_dict = {"impens" : impens}
+        
+        if special in special_dict:
+            trajectory_func = special_dict[special]
+        
+        original_Omega_1 = self.Omega_1
+        original_Omega_2 = self.Omega_2
+        if isinstance(self.Omega_1, (list, np.ndarray)):
+            original_Omega_1 = original_Omega_1.copy()
+        if isinstance(self.Omega_2, (list, np.ndarray)):
+            original_Omega_2 = original_Omega_2.copy()
+            
+        Ham, c_ops = self.dynamics()
+        
+        b = qt.destroy(self.N)
+        b_0 = qt.expect(b, rho_0)
+        
+        rho_ss = qt.steadystate(Ham, c_ops)
+        b_ss = qt.expect(b, rho_ss)
+        
+        timelst = np.linspace(0, tau, timepoints)
+        b_target = b_ss
+        iters = 0
+        while True:
+            iters += 1
+            
+            b_trajectory, db_trajectory = trajectory_func(b_0, b_target, timelst, **trajectory_func_kwargs)
+            
+            if iters == 1:
+                b_og_trajectory = b_trajectory
+            
+            Omega = -db_trajectory + (1j*self.Delta + self.gamma_1/2 - self.gamma_2*np.abs(b_trajectory)) * b_trajectory
+            
+            self.Omega_1 = np.imag(Omega)
+            self.Omega_2 = np.real(Omega)
+            Ham, c_ops = self.dynamics()
+            
+            rho_control = self.evolve(rho_0, timelst)
+            
+            if plot_resulting_trajectory:
+                b_control = qt.expect(b, rho_control)
+                plt.title(f"iteration {iters}")
+                plt.plot(np.real(b_og_trajectory), np.imag(b_og_trajectory), label = "original target trajectory")
+                plt.plot(np.real(b_trajectory), np.imag(b_trajectory), label = "corrected target trajectory")
+                plt.plot(np.real(b_control),np.imag(b_control), label = "resulting control trajectory")
+                plt.legend(loc = "best")
+                plt.show()
+        
+            rho_tau = rho_control[-1]
+            b_tau = qt.expect(b, rho_tau) 
+            offset_b = b_tau - b_ss
+            
+            if (iters == maxiter) or (abs(offset_b) < err_tol_b):
+                d_tr = qt.tracedist(rho_tau, rho_ss)
+                break
+            else:
+                b_target -= offset_b
+        
+        Omega_1_out = self.Omega_1.copy()
+        Omega_2_out = self.Omega_2.copy()
+        if not(save_to_osc):
+            self.Omega_1 = original_Omega_1
+            self.Omega_2 = original_Omega_2
+            
+        if report:
+            s = "== Shortcut finished == \n\n"
+            if iters < maxiter:
+                s += f"Result obtained with {iters} iterations. \n\n"
+            else:
+                s += "Maximum iterations reached. \n\n"
+            s += "Specifications: \n"
+            s += "   Method: Impens2023 \n"
+            s += f"   tau = {tau} \n\n"
+            s += f"Calculated metrics: \n"
+            s += f"   b_tau - b_ss = {offset_b} \n"
+            s += f"   d_tr(rho_tau, rho_ss) = {d_tr}"
+            if save_to_osc:
+                s+= "\n\n Omega_1 and Omega_2 are saved into the [vdp] object."
+            print(s)
+        
+        return Omega_1_out, Omega_2_out
+    
     def shortcut_impens(self, rho_0, tau, dy = None, timepoints = 101, err_tol_b = 1e-3, maxiter = 100, report = True,
                         plot_trajectory = False, save_to_osc = False):
     
@@ -202,6 +289,11 @@ class vdp:
         
         original_Omega_1 = self.Omega_1
         original_Omega_2 = self.Omega_2
+        if isinstance(self.Omega_1, (list, np.ndarray)):
+            original_Omega_1 = original_Omega_1.copy()
+        if isinstance(self.Omega_2, (list, np.ndarray)):
+            original_Omega_2 = original_Omega_2.copy()
+        
         Ham, c_ops = self.dynamics()
         
         b = qt.destroy(self.N)
