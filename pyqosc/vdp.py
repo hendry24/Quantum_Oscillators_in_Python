@@ -258,8 +258,8 @@ class vdp:
         if not(save_to_osc):
             self.Omega_1 = original_Omega_1
             self.Omega_2 = original_Omega_2
-        Omega_1_avg = np.mean(Omega_1_out)
-        Omega_2_avg = np.mean(Omega_2_out)
+        Omega_1_avg = np.mean(np.abs(Omega_1_out))
+        Omega_2_avg = np.mean(np.abs(Omega_2_out))
         
         if report:
             s = "== Shortcut finished == \n\n"
