@@ -2,7 +2,7 @@ import numpy as np
 import qutip as qt
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
-from pyqosc.shortcut_trajectories import impens
+from pyqosc.shortcut_trajectories import linear_impens, hyperbolic_spiral
 
 class vdp:
     def __init__(self, N, omega_0 = 1, omega = 1, Omega_1 = 0, Omega_2 = 1, gamma_1 = 1, gamma_2 = 0.1):
@@ -190,11 +190,12 @@ class vdp:
                 break
         return r[:j+1], phi[:j+1]
 
-    def shortcut(self, rho_0, tau, trajectory_func, err_tol_b = 1e-3, timepoints = 101, special = None,
+    def shortcut(self, rho_0, tau, trajectory_func = None, err_tol_b = 1e-3, timepoints = 101, special = None,
                  maxiter = 100, report = True, plot_resulting_trajectory = False, save_to_osc = False,
                  **trajectory_func_kwargs):
         
-        special_dict = {"impens" : impens}
+        special_dict = {"linear_impens" : linear_impens,
+                        "hyperbolic_spiral" : hyperbolic_spiral}
         
         if special in special_dict:
             trajectory_func = special_dict[special]
@@ -257,7 +258,9 @@ class vdp:
         if not(save_to_osc):
             self.Omega_1 = original_Omega_1
             self.Omega_2 = original_Omega_2
-            
+        Omega_1_avg = np.mean(Omega_1_out)
+        Omega_2_avg = np.mean(Omega_2_out)
+        
         if report:
             s = "== Shortcut finished == \n\n"
             if iters < maxiter:
@@ -269,117 +272,119 @@ class vdp:
             s += f"   tau = {tau} \n\n"
             s += f"Calculated metrics: \n"
             s += f"   b_tau - b_ss = {offset_b} \n"
-            s += f"   d_tr(rho_tau, rho_ss) = {d_tr}"
+            s += f"   d_tr(rho_tau, rho_ss) = {d_tr} \n"
+            s += f"   Omega_1_avg = {Omega_1_avg}\n"
+            s += f"   Omega_2_avg = {Omega_2_avg}\n"
             if save_to_osc:
                 s+= "\n\n Omega_1 and Omega_2 are saved into the [vdp] object."
             print(s)
         
         return Omega_1_out, Omega_2_out
     
-    def shortcut_impens(self, rho_0, tau, dy = None, timepoints = 101, err_tol_b = 1e-3, maxiter = 100, report = True,
-                        plot_trajectory = False, save_to_osc = False):
+    # def shortcut_impens(self, rho_0, tau, dy = None, timepoints = 101, err_tol_b = 1e-3, maxiter = 100, report = True,
+    #                     plot_trajectory = False, save_to_osc = False):
     
-        if not(timepoints & 1):
-            timepoints += 1     # We make sure the number of timepoints is odd so that tau/2 is always a time point.
-        midpoint = timepoints//2+1
-        timelst = np.linspace(0, tau, timepoints)
-        t_half = timelst[:midpoint]
+    #     if not(timepoints & 1):
+    #         timepoints += 1     # We make sure the number of timepoints is odd so that tau/2 is always a time point.
+    #     midpoint = timepoints//2+1
+    #     timelst = np.linspace(0, tau, timepoints)
+    #     t_half = timelst[:midpoint]
 
-        #####
+    #     #####
         
-        original_Omega_1 = self.Omega_1
-        original_Omega_2 = self.Omega_2
-        if isinstance(self.Omega_1, (list, np.ndarray)):
-            original_Omega_1 = original_Omega_1.copy()
-        if isinstance(self.Omega_2, (list, np.ndarray)):
-            original_Omega_2 = original_Omega_2.copy()
+    #     original_Omega_1 = self.Omega_1
+    #     original_Omega_2 = self.Omega_2
+    #     if isinstance(self.Omega_1, (list, np.ndarray)):
+    #         original_Omega_1 = original_Omega_1.copy()
+    #     if isinstance(self.Omega_2, (list, np.ndarray)):
+    #         original_Omega_2 = original_Omega_2.copy()
         
-        Ham, c_ops = self.dynamics()
+    #     Ham, c_ops = self.dynamics()
         
-        b = qt.destroy(self.N)
-        bbx = b.dag()*b*(b+b.dag())/2
-        bby = b.dag()*b*(b-b.dag())/(2*1j)
+    #     b = qt.destroy(self.N)
+    #     bbx = b.dag()*b*(b+b.dag())/2
+    #     bby = b.dag()*b*(b-b.dag())/(2*1j)
         
-        b_0 = qt.expect(b, rho_0)
+    #     b_0 = qt.expect(b, rho_0)
 
-        rho_ss = qt.steadystate(Ham, c_ops)
-        b_ss = qt.expect(b, rho_ss)
-        bbx_ss = qt.expect(bbx, rho_ss)
-        bby_ss = qt.expect(bby, rho_ss)
+    #     rho_ss = qt.steadystate(Ham, c_ops)
+    #     b_ss = qt.expect(b, rho_ss)
+    #     bbx_ss = qt.expect(bbx, rho_ss)
+    #     bby_ss = qt.expect(bby, rho_ss)
         
-        #####
+    #     #####
         
-        b_target = b_ss
-        iters = 0
-        while True:
-            iters += 1
+    #     b_target = b_ss
+    #     iters = 0
+    #     while True:
+    #         iters += 1
 
-            b_i = 0.5*(b_target+b_0) + 1j*dy
+    #         b_i = 0.5*(b_target+b_0) + 1j*dy
                 
-            db_firsthalf = 2/tau*(b_i-b_0)
-            b_firsthalf = b_0 + db_firsthalf * t_half
+    #         db_firsthalf = 2/tau*(b_i-b_0)
+    #         b_firsthalf = b_0 + db_firsthalf * t_half
             
-            db_secondhalf = 2/tau*(b_target-b_i)
-            b_secondhalf = b_i + db_secondhalf * t_half
+    #         db_secondhalf = 2/tau*(b_target-b_i)
+    #         b_secondhalf = b_i + db_secondhalf * t_half
             
-            b_trajectory = np.concatenate((b_firsthalf, b_secondhalf[1:]))
+    #         b_trajectory = np.concatenate((b_firsthalf, b_secondhalf[1:]))
             
-            if iters == 1:
-                b_og_trajectory = b_trajectory.copy()
+    #         if iters == 1:
+    #             b_og_trajectory = b_trajectory.copy()
             
-            Omega = (1j*self.Delta + self.gamma_1/2 - self.gamma_2*np.abs(b_trajectory)) * b_trajectory
-            Omega[:midpoint] -= db_firsthalf
-            Omega[midpoint:] -= db_secondhalf
+    #         Omega = (1j*self.Delta + self.gamma_1/2 - self.gamma_2*np.abs(b_trajectory)) * b_trajectory
+    #         Omega[:midpoint] -= db_firsthalf
+    #         Omega[midpoint:] -= db_secondhalf
             
-            self.Omega_1 = np.imag(Omega)
-            self.Omega_2 = np.real(Omega)
-            Ham, c_ops = self.dynamics()
+    #         self.Omega_1 = np.imag(Omega)
+    #         self.Omega_2 = np.real(Omega)
+    #         Ham, c_ops = self.dynamics()
             
-            rho_control = self.evolve(rho_0, timelst)
+    #         rho_control = self.evolve(rho_0, timelst)
 
-            if plot_trajectory:
-                b_control = qt.expect(b, rho_control)
-                plt.title(f"iteration {iters}")
-                plt.plot(np.real(b_og_trajectory), np.imag(b_og_trajectory), label = "original target trajectory")
-                plt.plot(np.real(b_trajectory), np.imag(b_trajectory), label = "corrected target trajectory")
-                plt.plot(np.real(b_control),np.imag(b_control), label = "resulting control trajectory")
-                plt.legend(loc = "best")
-                plt.show()
+    #         if plot_trajectory:
+    #             b_control = qt.expect(b, rho_control)
+    #             plt.title(f"iteration {iters}")
+    #             plt.plot(np.real(b_og_trajectory), np.imag(b_og_trajectory), label = "original target trajectory")
+    #             plt.plot(np.real(b_trajectory), np.imag(b_trajectory), label = "corrected target trajectory")
+    #             plt.plot(np.real(b_control),np.imag(b_control), label = "resulting control trajectory")
+    #             plt.legend(loc = "best")
+    #             plt.show()
 
-            rho_tau = rho_control[-1]
-            b_tau = qt.expect(b, rho_tau) 
-            Delta_b = np.abs(b_tau-b_ss)
+    #         rho_tau = rho_control[-1]
+    #         b_tau = qt.expect(b, rho_tau) 
+    #         Delta_b = np.abs(b_tau-b_ss)
             
-            if (iters == maxiter) or (Delta_b < err_tol_b):
-                bbx_tau = qt.expect(bbx, rho_tau)
-                bby_tau = qt.expect(bby, rho_tau)
-                Delta_bbb = np.sqrt((bbx_tau-bbx_ss)**2+(bby_tau-bby_ss)**2)
-                break
-            else:
-                offset_b = b_tau - b_ss
-                b_target -= offset_b
+    #         if (iters == maxiter) or (Delta_b < err_tol_b):
+    #             bbx_tau = qt.expect(bbx, rho_tau)
+    #             bby_tau = qt.expect(bby, rho_tau)
+    #             Delta_bbb = np.sqrt((bbx_tau-bbx_ss)**2+(bby_tau-bby_ss)**2)
+    #             break
+    #         else:
+    #             offset_b = b_tau - b_ss
+    #             b_target -= offset_b
         
-        Omega_1_out = self.Omega_1.copy()
-        Omega_2_out = self.Omega_2.copy()
-        if not(save_to_osc):
-            self.Omega_1 = original_Omega_1
-            self.Omega_2 = original_Omega_2
+    #     Omega_1_out = self.Omega_1.copy()
+    #     Omega_2_out = self.Omega_2.copy()
+    #     if not(save_to_osc):
+    #         self.Omega_1 = original_Omega_1
+    #         self.Omega_2 = original_Omega_2
             
-        if report:
-            s = "== Shortcut finished == \n\n"
-            if iters < maxiter:
-                s += f"Result obtained with {iters} iterations. \n\n"
-            else:
-                s += "Maximum iterations reached. \n\n"
-            s += "Specifications: \n"
-            s += "   Method: Impens2023 \n"
-            s += f"   tau = {tau} \n"
-            s += f"   Delta_y = {dy} \n\n"
-            s += f"Calculated metrics: \n"
-            s += f"   Delta <b> = {Delta_b} \n"
-            s += f"   Delta <b*bb> = {Delta_bbb} \n\n"
-            if save_to_osc:
-                s+= "Omega_1 and Omega_2 are saved into the [vdp] object."
-            print(s)
+    #     if report:
+    #         s = "== Shortcut finished == \n\n"
+    #         if iters < maxiter:
+    #             s += f"Result obtained with {iters} iterations. \n\n"
+    #         else:
+    #             s += "Maximum iterations reached. \n\n"
+    #         s += "Specifications: \n"
+    #         s += "   Method: Impens2023 \n"
+    #         s += f"   tau = {tau} \n"
+    #         s += f"   Delta_y = {dy} \n\n"
+    #         s += f"Calculated metrics: \n"
+    #         s += f"   Delta <b> = {Delta_b} \n"
+    #         s += f"   Delta <b*bb> = {Delta_bbb} \n\n"
+    #         if save_to_osc:
+    #             s+= "Omega_1 and Omega_2 are saved into the [vdp] object."
+    #         print(s)
         
-        return Omega_1_out, Omega_2_out
+    #     return Omega_1_out, Omega_2_out
