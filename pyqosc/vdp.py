@@ -190,9 +190,121 @@ class vdp:
                 break
         return r[:j+1], phi[:j+1]
 
-    def shortcut(self, rho_0, tau, trajectory_func = None, err_tol_b = 1e-3, timepoints = 101, special = None,
+    def shortcut(self, rho_0, tau, trajectory_func = None, special = None, err_tol_b = 1e-3, timepoints = 101,
                  maxiter = 100, report = True, plot_resulting_trajectory = False, save_to_osc = False,
                  **trajectory_func_kwargs):
+        
+        '''
+        ## INTRODUCTION
+        
+        Shortcut-to-synchronization driving. 
+        
+        Consider first a the dynamics of the system under a constant driving amplitude specified by constant 
+        ``vdp.Omega_1`` and ``vdp.Omega_2``. Under this dynamics a time $T$ is needed for the oscillator system 
+        to reach its synchronized, steady state ``rho_ss``. However, it is possible to reach ``rho_ss`` in a less
+        time ``tau``<``T`` using time-dependent driving ``Omega_1(t)`` and ``Omega_2(t)``, which are designed with
+        the goal *to bring the system to the steady state at ``t``=``tau``*. The shortcut driving will take the 
+        system sufficiently close to the steady-state. For ``t``>``tau``, the original driving is applied back to
+        the system to drive the system the rest of the way towards the synchronized state.
+        
+        The algorithm design is inspired by Impens2023 (https://doi.org/10.1038/s41598-022-27130-w), whose choice
+        of trajectory is included in this method. 
+        
+        The algorithm boils down to reverse engineering. As an oscillator is described in terms of the position 
+        ``x`` and momentum ``p`` making the phase point, the appropriate quantity is the expectation value of the 
+        ladder operators. Here ``<b> = <x> + i<p>`` is used, herein called ``b``. First, ``b`` is set to be the 
+        steady-state value ``b_ss`` at ``t``=``tau`` and the initial value ``b_0`` at ``t``=``0``. Then, the
+        trajectory is made between these points. The equation of motion for ``b`` is then used to calculate ``Omega_1``
+        and ``Omega_2`` for every time point between ``t``=``0`` and ``t``=``tau``. 
+        
+        The resulting ``Omega_1`` and ``Omega_2`` are then used to evolve the system until its state at 
+        time ``t``=``tau``. ``b`` at ``tau`` which is ``b_tau`` is then calculated. ``b_tau`` will be slightly different from
+        ``b_ss``. To get a better driving, the offset is subtracted from the current target ``b_target``, which is ``b_ss``
+        in the first iteration. The trajectory is then remade with the new target, and the new driving is made with
+        respect to this trajectory. The process is repeated until the resulting gets smaller than the specified tolerance 
+        or until the specified maximum iteration has been reached, in which case the resulting ``Omega_1`` and ``Omega_2`` 
+        are output. 
+        
+        A more thorough discussion is available in [Research2_Notes].
+        
+        ---
+        
+        ## PARAMETERS
+        
+        ``rho_0``   : 
+            The initial density matrix.
+            
+        ``tau`` :
+            Shortcut target time. The resulting driving are designed to terminate here.
+        
+        ``trajectory_func`` :
+            A callable which takes three positional arguments : ``b_0``, ``b_target``, and
+            ``timelst``, as well as optional keyword arguments ``**kwargs``. Here ``b_0`` is
+            the initial expectation value of the annihilation operator, ``b_target`` is the
+            target expectation value of the annihilation operator which equals the steady-state
+            value in the first iteration, and ``timelst`` is a time list for the evolution of 
+            ``b`` which terminates at ``tau``. Meanwhile, ``**kwargs`` may contain any additional
+            arguments passed to the function for variations. ``trajectory_func`` allows the user to
+            design his/her own trajectory.
+        
+        ``special`` :
+            There are also premade trajectories which one may use right away using this argument. More
+            details in the next section below. If a valid premade function name is input, then the input
+            of ``trajectory_func`` will be overriden. The function name is input as a ``str``.
+        
+        ``err_tol_b``   :
+            Error tolerance for ``b``. If the offset is below this value, then the iteration is stopped.
+            
+        ``timepoints``  : ``101``
+            The number of timepoints for the trajectory, and consequently for the driving. The time list 
+            passed into the trajectory function is one made using ``numpy.linspace(0, tau, timepoints)``.
+            There might be special constraints on this parameter, depending on the trajectory used. For
+            example, see ``linear_impens`` in the next section.
+            
+        ``maxiter`` : ``100``
+            The maximum number of iterations. If this number is reached, the method stops, whether the
+            offset has fallen below the tolerance or not, and the driving obtained in the final iteration 
+            is output.
+        
+        ``report``  : ``True``
+            Print out the calculation report in the terminal. The report shows the number of
+            iterations from which the result is obtained, the name of the trajectory function ([unkown]
+            is returned if ``foo.__name__`` does not exist), ``tau``, and the calculated metrics of the
+            density matrix of the final iteration at ``tau``: b_tau - b_ss which is the offset, d_tr(rho_tau,rho_ss)
+            which is the trace distance between the density matrix at ``t``=``tau`` and the steady-state density matrix
+            ``rho_ss``, and the average magnitude of the shortcut driving. 
+            
+        ``plot_resulting_trajectory``   : ``False``
+            Plot the original target trajectory, the target trajectory corrected for the iteration, and the resulting
+            trajectory tracked by ``b`` from the resulting driving in the iteration, for every iteration. Note that
+            the method calls ``matplotlib.pyplot.show()`` at every iteration if this argument is ``True``.
+            
+        ``save_to_osc`` : ``False``
+            Save the resulting driving to the ``vdp`` object. If ``False``, then ``vdp.Omega_1`` and ``vdp.Omega_2`` are
+            their original values before this method is called. If ``True`` and ``report = True``, then the report will
+            also add that the driving are saved into the ``vdp`` object. One will still need to append the default driving
+            with the length of the rest of the evolution time list. Since this is up to the user, the method can not to this.
+            
+        ``**trajectory_func_kwargs`` :
+            Optional keyword arguments passed to ``trajectory_func`` or ``special`` as the ``**kwargs`` argument. 
+            For ``special``, see the next section.
+            
+        ---
+        
+        ## Returns
+        
+        Returns the resulting shortcut driving as a tuple (Omega_1, Omega_2). Each entry is an array of length ``timepoints``
+        whose corresponding time list may be given by ``numpy.linspace(0, tau, timepoints)``.
+        
+        ---
+        
+        ## ``Special``: Premade Trajectory Functions
+        
+        The following are the premade shortcut trajectories available in ``shortcut_trajectories.py`` of this module.
+        
+        ### "linear_impens"
+        
+        '''
         
         special_dict = {"linear_impens" : linear_impens,
                         "hyperbolic_spiral" : hyperbolic_spiral}
@@ -240,6 +352,10 @@ class vdp:
                 plt.plot(np.real(b_og_trajectory), np.imag(b_og_trajectory), label = "original target trajectory")
                 plt.plot(np.real(b_trajectory), np.imag(b_trajectory), label = "corrected target trajectory")
                 plt.plot(np.real(b_control),np.imag(b_control), label = "resulting control trajectory")
+                plt.scatter(np.real(b_og_trajectory[0]), np.imag(b_og_trajectory[0]), c = "r", label = "start")
+                plt.scatter(np.real(b_og_trajectory[-1]), np.imag(b_og_trajectory[-1]), c = "m", label = "finish")
+                plt.scatter(np.real([b_trajectory[0], b_control[0]]), np.imag([b_trajectory[0], b_control[0]]), c = "r")
+                plt.scatter(np.real([b_trajectory[-1], b_control[-1]]), np.imag([b_trajectory[-1], b_control[-1]]),c = "m")
                 plt.legend(loc = "best")
                 plt.show()
         
@@ -263,20 +379,35 @@ class vdp:
         
         if report:
             s = "== Shortcut finished == \n\n"
+            
             if iters < maxiter:
                 s += f"Result obtained with {iters} iterations. \n\n"
             else:
-                s += "Maximum iterations reached. \n\n"
+                s += f"Maximum iterations of {maxiter} is reached. \n\n"
+                
             s += "Specifications: \n"
-            s += "   Method: Impens2023 \n"
+            
+            if special:
+                ss = f"{special} (premade, see pyqosc.{special})"
+            else:
+                try:
+                    trajectory_func_name = trajectory_func.__name__
+                except:
+                    trajectory_func_name = "[unkown]"
+                ss = f"{trajectory_func_name} (input by user)"
+            s += f"   Trajectory function: {ss} \n"
+            
             s += f"   tau = {tau} \n\n"
+            
             s += f"Calculated metrics: \n"
             s += f"   b_tau - b_ss = {offset_b} \n"
             s += f"   d_tr(rho_tau, rho_ss) = {d_tr} \n"
-            s += f"   Omega_1_avg = {Omega_1_avg}\n"
-            s += f"   Omega_2_avg = {Omega_2_avg}\n"
+            s += f"   Average Omega_1 magnitude = {Omega_1_avg}\n"
+            s += f"   Average Omega_2 magnitude = {Omega_2_avg}\n"
+            
             if save_to_osc:
                 s+= "\n\n Omega_1 and Omega_2 are saved into the [vdp] object."
+                
             print(s)
         
         return Omega_1_out, Omega_2_out

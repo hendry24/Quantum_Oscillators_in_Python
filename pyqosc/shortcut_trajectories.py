@@ -78,6 +78,14 @@ def hyperbolic_spiral(b_0, b_target, timelst, **kwargs):
         a = (1/tau) * (r_i/r_f - 1)
         
     where (r_f,phi_f) is one of b_0 and b_target which does not make (r_i,phi_i). 
+    
+    Note that due to the cyclic nature of cosine and sine, it does not matter if phi_f
+    or phi_i is negative (which may be the case when calculated by ``numpy.angle``). The
+    only thing that changes is the direction of the spiral, but we do not really care about
+    that.
+    
+    It is also evident that it is impossible to get to the origin within a finite amount of
+    time. This is one weakness of this trajectory.
     '''
     
     r_0 = np.abs(b_0)
@@ -86,6 +94,13 @@ def hyperbolic_spiral(b_0, b_target, timelst, **kwargs):
     r_target = np.abs(b_target)
     phi_target = np.angle(b_target)
    
+    shift_angle = kwargs.get("shift_angle")
+    if shift_angle:
+        if phi_0 < 0:
+            phi_0 += 2*np.pi
+        if phi_target < 0:
+            phi_target += 2*np.pi
+    
     if r_target>r_0:
         r_i = r_target
         phi_i = phi_target
@@ -101,7 +116,7 @@ def hyperbolic_spiral(b_0, b_target, timelst, **kwargs):
     
     tau = timelst[-1]
     
-    w = (1/tau) * (phi_f - phi_i)    # If an error occurs, try making phi_i and phi_f in the range [0,2pi].
+    w = (1/tau) * (phi_f - phi_i)
     a = (1/tau) * (r_i/r_f - 1)
     
     x_trajectory = r_i * np.cos(w * timelst + phi_i) / (a * timelst + 1)
