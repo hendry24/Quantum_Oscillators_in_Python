@@ -82,7 +82,7 @@ class vdp:
         return out
 
     def adler(self, t_end = 1e2, t_eval = 10, timepoints_returned = 100, method = "Radau",
-                init_polar = [1, 0], plot = False, overlap_with = None, color = "k",
+                init_polar = [1, 0], rho_0 = None, plot = False, overlap_with = None, color = "k",
                 one_cycle = False):
         '''
         Solve the equation of motion for the expectation value of the annihilation operator
@@ -115,6 +115,10 @@ class vdp:
             
         ``init_polar``  : ``[1,0]``
             Initial value for ``r`` and ``phi``, respectively. ``r=0`` is an invalid initial condition.
+            
+        ``rho_0``   : ``None``
+            Initial density matrix of the oscillator. If this is input, then ``init_polar`` is overriden by the value corresponding to
+            this density matrix. 
         
         ``plot``    : ``False``
             Put in ``x`` and ``y`` obtained from ``r`` and  ``phi`` for plotting.
@@ -302,7 +306,42 @@ class vdp:
         
         The following are the premade shortcut trajectories available in ``shortcut_trajectories.py`` of this module.
         
-        ### "linear_impens"
+        ### ``"linear_impens"`` (https://doi.org/10.1038/s41598-022-27130-w)
+        
+        The trajectory consists of two straight lines. The first line goes from ``b_0`` to some intermediate point ``b_i``, 
+        and the second goes from ``b_i`` to ``b_target``. This intermediate point is the midpoint plus a shift in the 
+        imaginary part, i.e. ``bm``=``0.5*(b_0+b_target) + 1j*dy``. 
+        
+        Optional argument(s): 
+        
+        ``dy``
+            Shift the imaginary part of the intermediate point from the midpoint between ``b_0`` and ``b_target``.  
+        
+        ### ``"hyperbolic_spiral"``  (Hendry, 2023)
+        
+        The trajectory is a special hyperbolic spiral defined by the parametric equations (with ``b(t)``=``x(t)+1j*y(t)``)
+        
+            ``x(t) = r_i * cos(w*t + phi_i) / (at + 1)``
+            
+            ``y(t) = r_i * cos(w*t + phi_i) / (at + 1)``
+            
+        where 
+
+            ``w = (1/tau) * (phi_f - phi_i)``
+            
+            ``a = (1/tau) * (r_i/r_f - 1)``
+            
+        determines the shape of the spiral. It is also possible for the resulting trajectory 
+        to be linear, i.e. when w = 0. 
+        
+        The direction of the spiral can be swapped by abusing the cyclic property of the angles to change
+        the sign of w.
+        
+        Optional argument(s): 
+        
+        ``swap_direction``
+            Swap the direction of the spiral from whatever original direction is calculated.
+        
         
         '''
         
@@ -326,6 +365,11 @@ class vdp:
         
         rho_ss = qt.steadystate(Ham, c_ops)
         b_ss = qt.expect(b, rho_ss)
+        
+        # TODO: Check if ``scale`` argument is needed. It multiplies ``b_0`` and ``b_ss`` so that the resulting 
+        #       trajectory is scaled by ``scale``. As it stands, this method does not output the same initial and
+        #       final points as that output by ``adler``. This is because the result in ``adler`` is multiplied
+        #       by sqrt(2). 
         
         timelst = np.linspace(0, tau, timepoints)
         b_target = b_ss

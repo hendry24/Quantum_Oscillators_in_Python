@@ -79,27 +79,31 @@ def hyperbolic_spiral(b_0, b_target, timelst, **kwargs):
         
     where (r_f,phi_f) is one of b_0 and b_target which does not make (r_i,phi_i). 
     
-    Note that due to the cyclic nature of cosine and sine, it does not matter if phi_f
-    or phi_i is negative (which may be the case when calculated by ``numpy.angle``). The
-    only thing that changes is the direction of the spiral, but we do not really care about
-    that.
+    w may be positive or negative depending on the relation between the initial and final
+    phase. Since the sign of w determines the direction of the spiral, it is useful to take
+    a deeper look at this parameter. 
+    
+    If phi_f > phi_i, then w is always positive. 
+    If phi_f = phi_i, then w = 0. 
+    If phi_f < phi_i, then w is always negative. 
+    
+    Our goal here is to make a trajectory from the initial to the final point. But
+    we have the freedom to change the sign of the angles by adding/subtracting by 2*pi since
+    it would result in the same angles. By doing this, we can control the sign of omega and
+    hence the direction of the spiral. This is the reasoning behind the ``swap_direction``
+    optional argument present in this trajectory making algorithm. By the relations above, we
+    can just shift the the value of, say, phi_f until the inequality which flips the sign
+    of w is met.
     
     It is also evident that it is impossible to get to the origin within a finite amount of
     time. This is one weakness of this trajectory.
     '''
-    
+
     r_0 = np.abs(b_0)
     phi_0 = np.angle(b_0)
     
     r_target = np.abs(b_target)
     phi_target = np.angle(b_target)
-   
-    shift_angle = kwargs.get("shift_angle")
-    if shift_angle:
-        if phi_0 < 0:
-            phi_0 += 2*np.pi
-        if phi_target < 0:
-            phi_target += 2*np.pi
     
     if r_target>r_0:
         r_i = r_target
@@ -116,6 +120,15 @@ def hyperbolic_spiral(b_0, b_target, timelst, **kwargs):
     
     tau = timelst[-1]
     
+    d_phi = phi_f - phi_i
+    if kwargs.get("swap_direction", False):
+        if d_phi > 0:
+            while phi_f > phi_i:
+                phi_f -= 2*np.pi
+        if d_phi < 0:
+            while phi_f < phi_i:
+                phi_f += 2*np.pi
+                
     w = (1/tau) * (phi_f - phi_i)
     a = (1/tau) * (r_i/r_f - 1)
     
