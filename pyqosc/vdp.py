@@ -67,7 +67,45 @@ class vdp:
         else:
             return self.Ham, self.c_ops
 
-    def evolve(self, rho_0, timelst, expect = []):
+    def evolve(self, rho_0, timelst, expect = [], plot = False, overlap_with = None, **plot_kwargs):
+        '''
+        ## INTRODUCTION
+        
+        Evolve the vdp oscillator system with the Hamiltonian and collapse operators given by ``vdp.dynamics``,
+        using mesolve. 
+        
+        ---
+        
+        ## RETURNS
+        
+        Returns the resulting states. If ``expect`` is specified, then return a list of expectation values instead.
+        
+        ---
+        
+        ## PARAMETERS
+        
+        ``rho_0``   :
+            Initial density matrix.
+            
+        ``timelst`` :
+            Evolution time list.
+            
+        ``expect``  :
+            A ``list`` of operators to take the expectation values of.
+        
+        ``plot``    :
+            Plot the results. If the expectation value is complex or imaginary, then the plot is a parametric 
+            curve with the time as the parameter. If the expectation value is real, then the plot is a plot of
+            the expectation value versus time. 
+        
+        ``overlap_with``    :   ``None``
+            ``matplotlib.axes.Axes`` object to plot on. If not specified, then make a new figure and axis with figure
+            size ``figsize=(5,5)``.
+            
+        ``**plot_kwargs``   :
+            Optional keyword arguments for the ``matplotlib.axes.Axes.plot`` command.
+        
+        '''
         
         if not(self.Ham):
             self.dynamics()
@@ -79,6 +117,19 @@ class vdp:
         else:
             out = res.states
         
+        if plot and expect:
+            if not(overlap_with):
+                fig, ax = plt.subplots(1, figsize = (5, 5))
+            else:
+                ax = overlap_with
+            
+            for i in range(len(expect)):
+                val = out[i]
+                if complex in [type(x) for x in val]:
+                    ax.plot(np.real(val), np.imag(val), label = f"expect_{i}",**plot_kwargs)
+                else:
+                    ax.plot(timelst, val, label = f"expect_{i}", **plot_kwargs)
+             
         return out
 
     def adler(self, t_end = 1e2, t_eval = 10, timepoints_returned = 100, method = "Radau",
