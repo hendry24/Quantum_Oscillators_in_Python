@@ -526,3 +526,25 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
         return qsl 
         
     return sp.optimize.fsolve(funo, init_tau, xtol = fsolve_xtol, maxfev = fsolve_maxfev)[0]
+
+################################################################################################################################################################
+################################################################################################################################################################
+
+def ss_qsl_delcampo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3, 
+                    fsolve_maxfev = int(1e6), mesolve_timepoints = 101, quad_limit = 101):
+    
+    # TODO: Incorporate time-dependent Linbladian.
+    
+    Ham, c_ops = qosc.dynamics()
+    rho_ss = qt.steadystate(Ham, c_ops)
+    
+    Ldag_rho_0 = 1j * qt.commutator(Ham, rho_0)
+    for i in range(len(c_ops)):
+        F = c_ops[i]
+        L_dag_rho_0 += F.dag()*rho_0*F - 0.5 * qt.commutator(F.dag()*F, rho_0, "anti")
+        
+    fig_merit = ((rho_0*rho_ss).tr())/((rho_0**2).tr())
+    tau_qsl = np.abs(fig_merit-1)*(rho_0**2).tr()/np.sqrt((Ldag_rho_0**2).tr())
+    
+    return tau_qsl
+    
