@@ -440,7 +440,7 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
             s += c_op * rho_t * c_op.dag() - 0.5 * qt.commutator(c_op.dag()*c_op, rho_t, kind = "anti")
         return s, rho_t
     
-    def H_D(t):
+    def tr_H_D_2_rho(t):
         D_t, rho_t = D(t)
         rho_eigvals, rho_eigstates = rho_t.eigenstates()
         out = 0
@@ -452,13 +452,12 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
                 if pn==pm:
                     continue
                 bn = rho_eigstates[n]
-                out += D_t.matrix_element(bm, bn) / (pn-pm) * bm * bn.dag()
-        out *= 1j
+                out += pm * D_t.matrix_element(bm, bn) * D_t.matrix_element(bn, bm) / (pm-pn)**2
         return out, rho_t
         
     def stdev_sum(t):
-        H_D_t, rho_t = H_D(t)
-        return np.sqrt(qt.variance(Ham, rho_t)) + np.sqrt(qt.expect(H_D_t**2, rho_t))
+        tr_H_D_2_rho_t, rho_t = tr_H_D_2_rho(t)
+        return np.sqrt(qt.variance(Ham, rho_t)) + np.sqrt(tr_H_D_2_rho_t)
     
     #####
     
@@ -507,7 +506,7 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
         def time_quad(func):
             return sp.integrate.quad(func, 0, tau, limit = quad_limit)[0]
         
-        timelst = np.linspace(0, tau, quad_limit).flatten()
+        timelst = np.linspace(0, tau, quad_limit).flatten() # fsolve somehow makes this a nested array, so flattening is needed.
         sigma_lst = np.empty(shape=(quad_limit,))
         A_lst = np.empty(shape=(quad_limit,))
         sigma_lst[0] = 0
@@ -523,7 +522,7 @@ def ss_qsl_funo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
         if qsl <= 0:
             raise ValueError("Invalid value of QSL is obtained. Algorithm fails.")
         
-        return qsl 
+        return qsl
         
     return sp.optimize.fsolve(funo, init_tau, xtol = fsolve_xtol, maxfev = fsolve_maxfev)[0]
 
@@ -541,7 +540,7 @@ def ss_qsl_delcampo(qosc, rho_0, init_tau = 1, fsolve_xtol = 1e-3,
     Ldag_rho_0 = 1j * qt.commutator(Ham, rho_0)
     for i in range(len(c_ops)):
         F = c_ops[i]
-        L_dag_rho_0 += F.dag()*rho_0*F - 0.5 * qt.commutator(F.dag()*F, rho_0, "anti")
+        Ldag_rho_0 += F.dag()*rho_0*F - 0.5 * qt.commutator(F.dag()*F, rho_0, "anti")
         
     fig_merit = ((rho_0*rho_ss).tr())/((rho_0**2).tr())
     tau_qsl = np.abs(fig_merit-1)*(rho_0**2).tr()/np.sqrt((Ldag_rho_0**2).tr())
