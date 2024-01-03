@@ -1,6 +1,6 @@
 import numpy as np
 import qutip as qt
-from scipy.integrate import solve_ivp
+from scipy.integrate import solve_ivp, trapz
 import matplotlib.pyplot as plt
 from pyqosc.shortcut_trajectories import linear_impens, hyperbolic_spiral
 
@@ -469,8 +469,7 @@ class vdp:
         if not(save_to_osc):
             self.Omega_1 = original_Omega_1
             self.Omega_2 = original_Omega_2
-        Omega_1_avg = np.mean(np.abs(Omega_1_out))
-        Omega_2_avg = np.mean(np.abs(Omega_2_out))
+        Omega_avg = trapz(y = np.abs(Omega_1_out)+np.abs(Omega_2_out), x = timelst) / tau
         
         if report:
             s = "== Shortcut finished == \n\n"
@@ -497,8 +496,7 @@ class vdp:
             s += f"Calculated metrics: \n"
             s += f"   b_tau - b_ss = {offset_b} \n"
             s += f"   d_tr(rho_tau, rho_ss) = {d_tr} \n"
-            s += f"   Average Omega_1 magnitude = {Omega_1_avg}\n"
-            s += f"   Average Omega_2 magnitude = {Omega_2_avg}\n"
+            s += f"   Average total driving anplitude = {Omega_avg}\n"
             
             if save_to_osc:
                 s+= "\n\n Omega_1 and Omega_2 are saved into the [vdp] object."
