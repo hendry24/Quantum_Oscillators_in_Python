@@ -3,6 +3,7 @@ import qutip as qt
 from scipy.integrate import solve_ivp, trapz
 import matplotlib.pyplot as plt
 from pyqosc.shortcut_trajectories import linear_impens, hyperbolic_spiral
+from pyqosc.general import qdistance_to_ss
 
 class vdp:
     def __init__(self, N, omega_0 = 1, omega = 1, Omega_1 = 0, Omega_2 = 1, gamma_1 = 1, gamma_2 = 0.1):
@@ -247,6 +248,7 @@ class vdp:
 
     def shortcut(self, rho_0, tau, trajectory_func = None, special = None, err_tol_b = 1e-3, timepoints = 101,
                  maxiter = 100, report = True, plot_resulting_trajectory = False, save_to_osc = False,
+                 timelst_ss_search = np.linspace(0, 100, 101), timelst_ss_short_search = np.linspace(0, 10, 101), 
                  **trajectory_func_kwargs):
         
         '''
@@ -281,6 +283,9 @@ class vdp:
         are output. 
         
         A more thorough discussion is available in [Research2_Notes].
+        
+        [CAUTION]
+        The Hamiltonian can not be time dependent, as ``qutip.steadystate`` is called in this method.
         
         ---
         
@@ -339,6 +344,16 @@ class vdp:
             their original values before this method is called. If ``True`` and ``report = True``, then the report will
             also add that the driving are saved into the ``vdp`` object. One will still need to append the default driving
             with the length of the rest of the evolution time list. Since this is up to the user, the method can not to this.
+        
+        ``timelst_ss_search``   : ``numpy.linspace(0, 100, 101)``
+            Time list used to search for the time needed to reach the steady state under constant driving with amplitude equal to
+            the average of the total shortcut driving from ``0`` until ``tau``. 
+            
+        ``timelst_ss_short_search``   :   ``numpy.linspace(0, 10, 101)``
+            Time list used to search for the time needed to reach the steady state under the shortcut driving continued with
+            constant driving with amplitude equal to the average of the total shortcut driving from ``0`` until ``tau``. The
+            ``0`` in this time list coincides with ``tau``, and ``tau`` is added by the program to the input array. As such,
+            this argument must be an array starting at 0.
             
         ``**trajectory_func_kwargs`` :
             Optional keyword arguments passed to ``trajectory_func`` or ``special`` as the ``**kwargs`` argument. 
@@ -404,10 +419,6 @@ class vdp:
         
         original_Omega_1 = self.Omega_1
         original_Omega_2 = self.Omega_2
-        if isinstance(self.Omega_1, (list, np.ndarray)):
-            original_Omega_1 = original_Omega_1.copy()
-        if isinstance(self.Omega_2, (list, np.ndarray)):
-            original_Omega_2 = original_Omega_2.copy()
             
         Ham, c_ops = self.dynamics()
         
@@ -459,25 +470,53 @@ class vdp:
             offset_b = b_tau - b_ss
             
             if (iters == maxiter) or (abs(offset_b) < err_tol_b):
-                d_tr = qt.tracedist(rho_tau, rho_ss)
                 break
             else:
                 b_target -= offset_b
-        
+
         Omega_1_out = self.Omega_1.copy()
         Omega_2_out = self.Omega_2.copy()
-        if not(save_to_osc):
+            
+        if report:
+        
+            amplitude_ratio = trapz(y = np.abs(Omega_1_out)+np.abs(Omega_2_out), x = timelst) / tau / (np.abs(original_Omega_1)+np.abs(original_Omega_2))
+            
+            d_tr_0_ss = qt.tracedist(rho_0, rho_ss)
+            d_tr_tau_ss = qt.tracedist(rho_tau, rho_ss)
+            fractional_tracedist_reduction = (d_tr_0_ss - d_tr_tau_ss) / d_tr_0_ss
+            
             self.Omega_1 = original_Omega_1
             self.Omega_2 = original_Omega_2
-        Omega_avg = trapz(y = np.abs(Omega_1_out)+np.abs(Omega_2_out), x = timelst) / tau
+            Ham, c_ops = self.dynamics()
+            T_ss = qdistance_to_ss(Ham = Ham,
+                                c_ops = c_ops,
+                                rho0 = rho_0,
+                                timelst = timelst_ss_search,
+                                dist_func = qt.tracedist,
+                                steadystate = rho_ss,
+                                _stop_at_t_ss = True)[1]
+            l = len(timelst_ss_short_search)
+            self.Omega_1 = np.concatenate((Omega_1_out, np.full(shape=(l-1,), fill_value=original_Omega_1)))   # The first value in the time list is ``tau`` so it is not included in the 
+                                                                                                # additional driving.
+            self.Omega_2 = np.concatenate((Omega_2_out, np.full(shape=(l-1,), fill_value=original_Omega_2)))
+            Ham, c_ops = self.dynamics()
+            T_ss_short = qdistance_to_ss(Ham = Ham,
+                                c_ops = c_ops,
+                                rho0 = rho_0,
+                                timelst = np.concatenate((timelst, (timelst_ss_short_search+tau)[1:])),
+                                dist_func = qt.tracedist,
+                                steadystate = rho_ss,
+                                _stop_at_t_ss = True)[1]
+            speed_up_ratio = T_ss / T_ss_short
+            
+            FoM = speed_up_ratio * fractional_tracedist_reduction / amplitude_ratio
         
-        if report:
             s = "== Shortcut finished == \n\n"
             
             if iters < maxiter:
-                s += f"Result obtained with {iters} iterations. \n\n"
+                s += f"Result obtained with {iters} iterations. \n ===== \n"
             else:
-                s += f"Maximum iterations of {maxiter} is reached. \n\n"
+                s += f"Maximum iterations of {maxiter} is reached. \n ===== \n"
                 
             s += "Specifications: \n"
             
@@ -487,21 +526,27 @@ class vdp:
                 try:
                     trajectory_func_name = trajectory_func.__name__
                 except:
-                    trajectory_func_name = "[unkown]"
+                    trajectory_func_name = "[unknown]"
                 ss = f"{trajectory_func_name} (input by user)"
             s += f"   Trajectory function: {ss} \n"
             
-            s += f"   tau = {tau} \n\n"
+            s += f"   tau = {tau} \n ===== \n"
             
             s += f"Calculated metrics: \n"
-            s += f"   b_tau - b_ss = {offset_b} \n"
-            s += f"   d_tr(rho_tau, rho_ss) = {d_tr} \n"
-            s += f"   Average total driving anplitude = {Omega_avg}\n"
+            s += f"   Final (b_tau - b_ss) = {offset_b}\n\n"
+            s += f"   Amplitude ratio = {amplitude_ratio}\n"
+            s += f"   Fractional trace distance reduction = {fractional_tracedist_reduction} \n"
+            s += f"   Speed up ratio = {speed_up_ratio}\n\n"
+            s += f"   Figure of merit (FoM) = {FoM}"
             
             if save_to_osc:
-                s+= "\n\n Omega_1 and Omega_2 are saved into the [vdp] object."
+                s+= "\n ===== \n Omega_1 and Omega_2 are saved into the [vdp] object."
                 
             print(s)
+        
+        if not(save_to_osc):
+            self.Omega_1 = original_Omega_1
+            self.Omega_2 = original_Omega_2
         
         return Omega_1_out, Omega_2_out
     
