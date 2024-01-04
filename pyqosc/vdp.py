@@ -248,7 +248,7 @@ class vdp:
 
     def shortcut(self, rho_0, tau, trajectory_func = None, special = None, err_tol_b = 1e-3, timepoints = 101,
                  maxiter = 100, report = True, plot_resulting_trajectory = False, save_to_osc = False,
-                 timelst_ss_search = np.linspace(0, 100, 101), timelst_ss_short_search = np.linspace(0, 10, 101), 
+                 t_end_ss_search = 100, t_end_ss_short_search = 100, 
                  **trajectory_func_kwargs):
         
         '''
@@ -345,15 +345,16 @@ class vdp:
             also add that the driving are saved into the ``vdp`` object. One will still need to append the default driving
             with the length of the rest of the evolution time list. Since this is up to the user, the method can not to this.
         
-        ``timelst_ss_search``   : ``numpy.linspace(0, 100, 101)``
-            Time list used to search for the time needed to reach the steady state under constant driving with amplitude equal to
-            the average of the total shortcut driving from ``0`` until ``tau``. 
+        ``t_end_ss_search``   : ``100``
+            The end of the time list used to search for the time needed to reach the steady state under constant driving with amplitude equal to
+            the average of the total shortcut driving from ``0`` until ``tau``. The time list created has a spacing between two points equal to the
+            spacings in the time list used for the trajectory making, i.e. ``np.linspace(0, tau, timepoints)``.
             
-        ``timelst_ss_short_search``   :   ``numpy.linspace(0, 10, 101)``
-            Time list used to search for the time needed to reach the steady state under the shortcut driving continued with
-            constant driving with amplitude equal to the average of the total shortcut driving from ``0`` until ``tau``. The
-            ``0`` in this time list coincides with ``tau``, and ``tau`` is added by the program to the input array. As such,
-            this argument must be an array starting at 0.
+        ``t_end_ss_short_search``   :   ``100``
+            The end of the time list used to search for the time needed to reach the steady state under the shortcut driving. The time list made
+            is concatenated with the trajectory time list generated with ``np.linspace(0, tau, timepoints)``. As such, the final time list
+            input to mesolve ends at ``t_end_ss_short_search``+``tau``. The final time list has uniform spacing equal to the spacing in the
+            trajectory time list.  
             
         ``**trajectory_func_kwargs`` :
             Optional keyword arguments passed to ``trajectory_func`` or ``special`` as the ``**kwargs`` argument. 
@@ -479,12 +480,16 @@ class vdp:
             
         if report:
         
-            amplitude_ratio = trapz(y = np.abs(Omega_1_out)+np.abs(Omega_2_out), x = timelst) / tau / (np.abs(original_Omega_1)+np.abs(original_Omega_2))
+            Omega_avg = trapz(y = np.abs(Omega_1_out)+np.abs(Omega_2_out), x = timelst) / tau
+            amplitude_ratio = Omega_avg / (np.abs(original_Omega_1)+np.abs(original_Omega_2))
             
             d_tr_0_ss = qt.tracedist(rho_0, rho_ss)
             d_tr_tau_ss = qt.tracedist(rho_tau, rho_ss)
             fractional_tracedist_reduction = (d_tr_0_ss - d_tr_tau_ss) / d_tr_0_ss
             
+            dt = timelst[1]-timelst[0]
+            timelst_ss_search = np.arange(0, t_end_ss_search, dt)
+            timelst_ss_short_search = np.arange(tau, t_end_ss_short_search+tau, dt)
             self.Omega_1 = original_Omega_1
             self.Omega_2 = original_Omega_2
             Ham, c_ops = self.dynamics()
@@ -496,14 +501,15 @@ class vdp:
                                 steadystate = rho_ss,
                                 _stop_at_t_ss = True)[1]
             l = len(timelst_ss_short_search)
-            self.Omega_1 = np.concatenate((Omega_1_out, np.full(shape=(l-1,), fill_value=original_Omega_1)))   # The first value in the time list is ``tau`` so it is not included in the 
-                                                                                                # additional driving.
+            self.Omega_1 = np.concatenate((Omega_1_out, np.full(shape=(l-1,), fill_value=original_Omega_1)))   
             self.Omega_2 = np.concatenate((Omega_2_out, np.full(shape=(l-1,), fill_value=original_Omega_2)))
             Ham, c_ops = self.dynamics()
             T_ss_short = qdistance_to_ss(Ham = Ham,
                                 c_ops = c_ops,
                                 rho0 = rho_0,
-                                timelst = np.concatenate((timelst, (timelst_ss_short_search+tau)[1:])),
+                                timelst = np.concatenate((timelst, timelst_ss_short_search[1:])), # The first value in the time list is ``tau`` 
+                                                                                                # so it is not included in the 
+                                                                                                # additional driving.
                                 dist_func = qt.tracedist,
                                 steadystate = rho_ss,
                                 _stop_at_t_ss = True)[1]
@@ -533,7 +539,11 @@ class vdp:
             s += f"   tau = {tau} \n ===== \n"
             
             s += f"Calculated metrics: \n"
-            s += f"   Final (b_tau - b_ss) = {offset_b}\n\n"
+            s += f"   Final (b_tau - b_ss) = {offset_b}\n"
+            s += f"   Time to reach the steady state:\n" 
+            s += f"      Without shortcut = {T_ss} \n"
+            s += f"      With shortcut = {T_ss_short} \n"
+            s += f"   Average total amplitude = {Omega_avg}\n\n"
             s += f"   Amplitude ratio = {amplitude_ratio}\n"
             s += f"   Fractional trace distance reduction = {fractional_tracedist_reduction} \n"
             s += f"   Speed up ratio = {speed_up_ratio}\n\n"
@@ -544,7 +554,10 @@ class vdp:
                 
             print(s)
         
-        if not(save_to_osc):
+        if save_to_osc:
+            self.Omega_1 = Omega_1_out
+            self.Omega_2 = Omega_2_out
+        else:
             self.Omega_1 = original_Omega_1
             self.Omega_2 = original_Omega_2
         

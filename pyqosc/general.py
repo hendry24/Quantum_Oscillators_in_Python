@@ -30,13 +30,14 @@ def steady_state(Ham, c_ops, plot_wigner = False, xlim = 6, ylim = 6, overlap_wi
 ################################################################################################################################################################
 
 def qdistance_to_ss(Ham, c_ops, rho0, timelst, dist_func = qt.fidelity, steadystate = None, 
-                    plot = False, overlap_with=None, _stop_at_t_ss = False):
+                    plot = False, overlap_with=None, ss_err_tol = 1e-3,_stop_at_t_ss = False):
 
-    if not(overlap_with):
-        fig, ax = plt.subplots(1, figsize = (5, 4))
-    else:
-        ax = overlap_with
-        
+    if plot:
+        if not(overlap_with):
+            fig, ax = plt.subplots(1, figsize = (5, 4))
+        else:
+            ax = overlap_with
+            
     if not(steadystate):
         rho_ss = steady_state(Ham, c_ops)
     else:
@@ -50,12 +51,13 @@ def qdistance_to_ss(Ham, c_ops, rho0, timelst, dist_func = qt.fidelity, steadyst
         dist_lst.append(dist := dist_func(rho_t[i], rho_ss))
         
         # Mark when steady state is reached.
-        if mark and abs(dist - dist_func(rho_ss, rho_ss)) < 1e-3:
+        if mark and abs(dist - dist_func(rho_ss, rho_ss)) < ss_err_tol:
             mark = False
             t_ss = timelst[i]
             if _stop_at_t_ss:
                 break
-            ax.axvline(timelst[i], ls = ":", c = 'r', label = f"steady state reached at \n t = {round(timelst[i], 2)}")
+            if plot:
+                ax.axvline(timelst[i], ls = ":", c = 'r', label = f"steady state reached at \n t = {round(timelst[i], 2)}")
     
     if plot:
         
