@@ -268,6 +268,9 @@ def ss_c_spectrum(timelst_ss, expval_ss, omega_lim = 1.0, plot = False, plot_bar
         else:
             fig, ax = plt.subplots(1, figsize = (5, 4))
         
+        if not(width in plot_kwargs.keys()):
+            plot_kwargs["width"] = 0.02 # Default width is too large.
+            
         if plot_bar:
             ax.bar(omega, spect, **plot_kwargs)
         else:
@@ -335,7 +338,7 @@ def ss_qsl_mt(Ham, c_ops, rho_0, timelst, plot = False, overlap_with = None):
 #         s = 0
 #         rho_t = rho(t)
 #         for c_op in c_ops:
-#             s += c_op * rho_t * c_op.dag() - 0.5 * qt.commutator(c_op.dag()*c_op, rho_t, kind = "anti")
+#             s += c_op * rho_t * c_op.dag() - 0.5 qo* qt.commutator(c_op.dag()*c_op, rho_t, kind = "anti")
 #         return s, rho_t
     
 #     def H_D(t):

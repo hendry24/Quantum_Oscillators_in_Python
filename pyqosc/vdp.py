@@ -231,6 +231,11 @@ class vdp:
         slice the arrays to get the values over one period of oscillation.
         '''
         
+        # TODO: Fails to work properly sometimes. 
+        
+        if np.abs(r[1]-r[0]) < 1e-3 and np.abs(phi[1]-phi[0]) < 1e-3:
+            return r[0], phi[0]
+        
         increase = False
         if phi[1]>phi[0]:
             increase = True
