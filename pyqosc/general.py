@@ -43,7 +43,7 @@ def qdistance_to_ss(Ham, c_ops, rho0, timelst, dist_func = qt.fidelity, steadyst
     else:
         rho_ss = steadystate
         
-    rho_t = qt.mesolve(Ham, rho0, timelst, c_ops).states
+    rho_t = qt.mesolve(Ham, rho0, timelst, c_ops, options = options).states
     
     dist_lst = []
     mark = True
