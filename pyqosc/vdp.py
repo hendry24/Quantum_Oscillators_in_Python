@@ -126,8 +126,10 @@ class vdp:
             
             for i in range(len(expect)):
                 val = out[i]
-                if complex in [type(x) for x in val]:
+                if np.complex128 in [type(x) for x in val]:
                     ax.plot(np.real(val), np.imag(val), label = f"expect_{i}",**plot_kwargs)
+                    ax.scatter(np.real(val[0]), np.imag(val[0]), color = "r", label = "start")
+                    ax.scatter(np.real(val[-1]), np.imag(val[-1]), color = "g", label = "finish")
                 else:
                     ax.plot(timelst, val, label = f"expect_{i}", **plot_kwargs)
              
